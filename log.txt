@@ -1,0 +1,4 @@
+Beginning of program SampleApp.exe.
+After search of function HelloWorld in DLL.
+Before call of function HelloWorld.
+Before call of FreeLibrary.

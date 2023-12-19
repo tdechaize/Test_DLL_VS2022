@@ -1,0 +1,1595 @@
+					 Bilan concernant la construction et les tests d'une DLL 
+		avec le compilateur Visual C/C++ inclus dans VS2022 Community sur Windows 11 64 bits.
+	 
+Tout d'abord rappelons l'installation préalable de cet environnement de "pur" développement Visual Studio 2022 
+(version Community, la seule en version libre), auquel il faut aussi rajouter l'installation du Software
+Develoment Kit (SDK) for Windows (pour mon cas, celui de Windows 10 et Windows 11).
+
+Le kit d'installation de cet environnement de développement est disponible sur le site
+		https://visualstudio.microsoft.com/fr/vs/community/ 
+
+Je choisis le répertoire d'installation standard proposé : "C:\Program Files\Microsoft Visual Studio".
+
+C'est la version 64 bits de cet environnement qui s'installe alors, et il faut ensuite installer le kit de développement
+de Windows (SDK) qui est lui fourni à part : 
+		https://developer.microsoft.com/fr-fr/windows/downloads/windows-sdk/
+
+En préambule, j'ai aussi consulté sur Internet quelques bons tutos sur la construction de DLL et leurs utilisations.
+
+Voici une liste non exhaustive de ces recherches :
+	a) sur le site "developpez.com" (https://www.developpez.com/), un trés bon tutoriel expliquant les deux
+		modes d'usage d'une DLL : le mode explicite avec des fonctions Windows et le mode implicite (présence
+		de la DLL dans le PATH) : https://melem.developpez.com/tutoriels/api-windows/bibliotheques-dynamiques-dlls/
+	b) un excellent article de Mark Payne sur la construction d'une DLL, versionnée ou non, et avec ressources :
+		https://www.transmissionzero.co.uk/computing/building-dlls-with-mingw/
+		Avec cet exemple, la présence d'un fichier d'include avec l'astuce de tester la présence d'une "variable define" 
+		lors des compilations permettant de préfixer les functions par "__declspec(dllexport)" pour la génération de la DLL,
+		et par le préfixage par "__declspec(dllimport)" lors de l'utilisation de la DLL, me semblait fortement souhaité.
+	b) l'exemple de Chris Wellons "How to build and use DLLs on Windows" (très instructif)
+				https://nullprogram.com/blog/2021/05/31/
+
+Puis, j'ai cherché des exemples de sources de DLL en environnement Visual C/C++, que j'ai trouvé sur ce site :						
+	https://www.codeguru.com/cplusplus/dll-tutorial-for-beginners/
+
+Cet exemple volontairement très simple, m'a donné quand même quelques "fils à retordre", car la fonction appellée de la DLL 
+sans aucun argument ne s'appellait pas correctement lors du test avec chargement explicite.
+Du coup, j'ai cherché des exemples équivalents (et il y en a ...) qui m'ont alors permis, après plusieurs tests, de résoudre
+cette difficulté, et j'ai laissé "pas mal" de mes différents outils de trace dans le code source du test avec chargement 
+explicite. 
+
+L'exemple pris ne fournit pas de ligne de commande pour générer la DLL avec Visual C/C++ en ligne de commande, 
+mais justement pour ce compilateur, il faut au préalable avoir positionner les bons répertoires dans le PATH Windows. 
+En outre, il faut récupérer les bons répertoires des "include" utiles, comme des librairies utiles du Kit 
+de développement, mais aussi de la suite Visual Studio 2022.
+
+Pour essayer de résoudre cette "légère" difficulté, je me suis créé pas mal de variables d'environnement
+sous Windows, afin de gérer correctement "le versionning" de ces différents répertoires.
+
+D'abord pour les adjonctions dans le PATH Windows, il faut rajouter :
+		C:\Program Files (X86)\Windows Kits\%KIT_WIN_VERSION%\bin\%KIT_WIN_NUM%\x86
+		C:\Program Files\Microsoft Visual Studio\%VS_VERSION%\Community\VC\Tools\MSVC\%VS_NUM%\bin\Hostx86\x86
+
+Nous verrons plus loin que j'ai utilisé la même technique pour les fichiers d'include :
+		C:\Program Files (X86)\Windows Kits\%KIT_WIN_VERSION%\include\%KIT_WIN_NUM%\shared
+		C:\Program Files (X86)\Windows Kits\%KIT_WIN_VERSION%\include\%KIT_WIN_NUM%\ucrt
+		C:\Program Files (X86)\Windows Kits\%KIT_WIN_VERSION%\include\%KIT_WIN_NUM%\um
+		C:\Program Files\Microsoft Visual Studio\%VS_VERSION%\Community\VC\Tools\MSVC\%VS_NUM%\include
+
+comme pour les librairies utiles en version 32 bits :
+		C:\Program Files (X86)\Windows Kits\%KIT_WIN_VERSION%\lib\%KIT_WIN_NUM%\um\x86
+		C:\Program Files\Microsoft Visual Studio\%VS_VERSION%\Community\VC\Tools\MSVC\%VS_NUM%\lib\x86
+		C:\Program Files (X86)\Windows Kits\%KIT_WIN_VERSION%\lib\%KIT_WIN_NUM%\ucrt\x86		
+		C:\Program Files\Microsoft Visual Studio\%VS_VERSION%\Community\VC\Tools\MSVC\%VS_NUM%\lib\x86\store
+
+avec les valeurs suivantes affectées aux variables d'environnement qui changent assez souvent :
+		KIT_WIN_VERSION			vaut 10
+		KIT_WIN_NUM				vaut 10.0.22621.0    	(peut changer à chaque évolution de VS2022)
+		VS_VERSION				vaut 2022
+		VS_NUM 					vaut 14.38.33130		(peut changer à chaque évolution de VS2022)
+		
+Evidemment, pour un environnement X64, il faut repositionner ces différents répertoires.
+ 
+Je vous livre donc le résultat de ces changements dans les fichiers sources suivants, car en fait j'ai du indiquer explicitement
+"void" comme paramètre par défaut de la fonction appellée pour que cet exemple fonctionne correctement :
+
+NB : J'ai du aussi rajouter un Define juste avant le chargement du fichier d'include <windows.h> pour éviter des "warnings" 
+en pagaille :         #define WIN32_LEAN_AND_MEAN 
+
+"SampleDLL.cpp" (fichier principal de la DLL exemple) :
+
+// ***********************            File : SampleDLL.cpp             *****************
+
+// #include "stdafx.h"
+#define WIN32_LEAN_AND_MEAN
+#include <windows.h>
+#define EXPORTING_DLL
+#include "sampleDLL.h"
+
+/* if used by C++ code, identify these functions as C items */
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+BOOL APIENTRY DllMain( HANDLE hModule, DWORD  ul_reason_for_call, LPVOID lpReserved )
+{
+   return TRUE;
+}
+
+#ifdef __cplusplus
+}
+#endif
+
+extern void HelloWorld(void)
+{
+   MessageBox( NULL, TEXT("Hello World"), 
+   TEXT("In a DLL"), MB_OK);
+}
+// ***********************          End file : SampleDLL.cpp           *****************
+
+Voici le source du fichier d'include "sampleDLL.h" :
+
+// **************************          Include file : SampleDLL.h             ****************
+//
+#ifndef INDLL_H
+#define INDLL_H
+
+/* if used by C++ code, identify these functions as C items */
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+   #ifdef EXPORTING_DLL
+      __declspec(dllexport) void HelloWorld(void) ;
+   #else
+      __declspec(dllimport) void HelloWorld(void) ;
+   #endif
+   
+#ifdef __cplusplus
+}
+#endif 
+ 
+#endif
+// **************************           End file : SampleDLL.h               ****************
+
+Le code source du programme de test de la DLL avec chargement implicite est ci-dessous :
+
+"SampleApp_implcit.cpp" :
+
+// *********************      File : SampleApp_implcit.cpp (test DLL with implicit load)    ********************
+
+// #include "stdafx.h"
+#define WIN32_LEAN_AND_MEAN
+#include <windows.h>
+#include "sampleDLL.h"
+
+int APIENTRY WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nCmdShow)
+{ 	
+   HelloWorld();
+   return 0;
+}
+// *********************               End file : SampleApp_implicit.cpp                   ********************
+
+Le code source du programme de test de la DLL avec chargement implicite est ci-dessous (très remanié par rapport
+à l'original) :
+
+// **************************      File : SampleApp_explicit.cpp (example of load explicit of DLL)      ***********************
+
+// #include "stdafx.h"
+#define WIN32_LEAN_AND_MEAN
+#include <windows.h>
+#include <iostream>
+#include <fstream>
+#include <cstring>
+#include "sampleDLL.h"
+
+using namespace std;
+
+typedef VOID (*DLLPROC)(void);
+
+int APIENTRY WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nCmdShow)
+{ 	
+
+HINSTANCE hinstDLL;
+DLLPROC _HelloWorld;
+BOOL fFreeDLL;
+std::ofstream out("log.txt");
+
+#if defined(__x86_64__) || defined(_M_X64) || defined(__amd64__)
+	hinstDLL = LoadLibrary("SampleDLL64.dll");
+#else
+    hinstDLL = LoadLibrary("SampleDLL.dll");
+#endif
+
+out << "Beginning of program SampleApp.exe." << endl;
+
+if (hinstDLL != NULL || hinstDLL == INVALID_HANDLE_VALUE)
+{
+   _HelloWorld = (DLLPROC)GetProcAddress(hinstDLL, "HelloWorld");
+   out << "After search of function HelloWorld in DLL." << endl;
+   if (_HelloWorld != NULL) {
+       out << "Before call of function HelloWorld." << endl;
+      _HelloWorld();
+   }
+   else
+   {
+    MessageBox(NULL, "Unable to find function HelloWorld.", "Error", MB_OK | MB_ICONERROR);	  
+   }
+   out << "Before call of FreeLibrary." << endl;
+   fFreeDLL = FreeLibrary(hinstDLL);
+}
+else 
+{
+#if defined(__x86_64__) || defined(_M_X64) || defined(__amd64__)
+    MessageBox(NULL, "Unable to load SampleDLL64.dll.", "Error", MB_OK | MB_ICONERROR);
+#else
+	MessageBox(NULL, "Unable to load SampleDLL.dll.", "Error", MB_OK | MB_ICONERROR);
+#endif
+}
+out.close();
+}
+
+// **************************                End file : SampleApp_explicit.cpp                ***********************
+
+En fait, le source initial ne fonctionnant pas, j'ai du rajouter des traces ou des "messagebox" d'avertissement, 
+car aucun message n'apparaissait, ce programme de test se terminait sans erreur, mais sans ouverture attendue du
+"messagebox" avec affichage d'une boîte de dialogue très simple affichant le texte "Hello World", d'un bouton 
+"OK", et avec le titre de cette boîte dénommé "in a DLL".
+
+Le fait que tout cet exemple soit bati avec des appels aux fonctions d'affichage de Windows et sans traces "à l'écran"
+ne m'a pas simplifié la tâche de "debuggage". C'est une des difficultés du deboggage d'une DLL utilisant l'interface 
+graphique de l'OS.
+
+Je me suis constitué deux batchs (.ie. fichiers de commande)de génération de la DLL suivie de la génération du programme
+de test avec chargement implicite et du programme de test avec chargement explicite, d'abord en version 32 bits, puis en
+version 64 bits.
+
+le script de constitution en 32 bits est le suivant :
+
+"compile_link_dll_VS2022_32bits.bat" :
+
+@echo off
+SET PATHINIT=%PATH%
+echo.  ******************                        Compilation de la DLL en mode 32 bits                        *******************
+REM Mandatory, add to PATH the binary directory of compiler VisualC/C++ 32 bits + Kits Windows. You can adapt this directory at your personal software environment.
+SET PATH=C:\Program Files (X86)\Windows Kits\%KIT_WIN_VERSION%\bin\%KIT_WIN_NUM%\x86;C:\Program Files\Microsoft Visual Studio\%VS_VERSION%\Community\VC\Tools\MSVC\%VS_NUM%\bin\Hostx86\x86;;C:\GetGnuWin32\bin;%PATH%
+SET LIB="C:\Program Files (X86)\Windows Kits\%KIT_WIN_VERSION%\lib\%KIT_WIN_NUM%\um\x86";"C:\Program Files\Microsoft Visual Studio\%VS_VERSION%\Community\VC\Tools\MSVC\%VS_NUM%\lib\x86";"C:\Program Files (X86)\Windows Kits\%KIT_WIN_VERSION%\lib\%KIT_WIN_NUM%\ucrt\x86";"C:\Program Files\Microsoft Visual Studio\%VS_VERSION%\Community\VC\Tools\MSVC\%VS_NUM%\lib\x86\store"
+SET LIBPATH="."
+REM Options used with Visual C/C++ compiler 32 bits :
+REM 	/Wall								-> set all warning during compilation
+REM		/c 									-> compile and assemble only, not call of linker
+REM 	/Dxxxxxx							-> define variable xxxxxx used by preprocessor of compiler Visual C/C++
+REM 	/Fodll_core.obj 					-> output of object file indicated just after this option 
+echo.  ***************       Compilation de la DLL avec Visual C/C++ 32 bits + Kits Windows.             *****************
+cl /nologo /Wall /c /TP /DNDEBUG SampleDLL.cpp /FoSampleDLL.obj /I"C:\Program Files (X86)\Windows Kits\%KIT_WIN_VERSION%\include\%KIT_WIN_NUM%\shared" /I"C:\Program Files (X86)\Windows Kits\%KIT_WIN_VERSION%\include\%KIT_WIN_NUM%\ucrt" /I"C:\Program Files (X86)\Windows Kits\%KIT_WIN_VERSION%\include\%KIT_WIN_NUM%\um" /I"C:\Program Files\Microsoft Visual Studio\%VS_VERSION%\Community\VC\Tools\MSVC\%VS_NUM%\include"
+REM Options used with linker Visual C/C++ 32 bits :
+REM		/LD									-> generate a shared library => on Window, generate a DLL (Dynamic Linked Library)
+REM		/MT                     			-> Use static run-time  
+echo.  ***************          Edition de liens de la DLL avec Visual C/C++ 32 bits + Kits Windows.         *******************
+cl /nologo /LD /MT /FeSampleDLL.dll SampleDLL.obj kernel32.lib user32.lib
+echo.  ***************              Listage des fonctions exportees de la DLL                                *******************
+REM  	dump result with command "dumpbin" to see exported symbols of dll
+dumpbin /exports  SampleDLL.dll
+echo.  *************     Generation et lancement du premier programme de test de la DLL en mode implicite.      *******************
+cl /nologo /Wall /c /TP /D_WIN32 /DNDEBUG /FoSampleApp_implicit.obj SampleApp_implicit.cpp /I"C:\Program Files (X86)\Windows Kits\%KIT_WIN_VERSION%\include\%KIT_WIN_NUM%\shared" /I"C:\Program Files (X86)\Windows Kits\%KIT_WIN_VERSION%\include\%KIT_WIN_NUM%\ucrt" /I"C:\Program Files (X86)\Windows Kits\%KIT_WIN_VERSION%\include\%KIT_WIN_NUM%\um" /I"C:\Program Files\Microsoft Visual Studio\%VS_VERSION%\Community\VC\Tools\MSVC\%VS_NUM%\include"
+REM 	Options used by linker of cl /nologoANG/LLVM compiler
+REM 		/Fexxxxx 						-> Define output file generated by Visual C/C++ compiler, here exe file
+cl /nologo  /FeSampleApp_implicit.exe SampleApp_implicit.obj SampleDLL.lib kernel32.lib user32.lib
+REM 	Run test program of DLL with implicit load
+SampleApp_implicit.exe
+echo.  ************      Generation et lancement du deuxieme programme de test de la DLL en mode explicite.      *****************
+cl /nologo /c /TP /Wall  /DNDEBUG /D_WIN32 /EHsc /FoSampleApp_explicit.obj SampleApp_explicit.cpp /I"C:\Program Files (X86)\Windows Kits\%KIT_WIN_VERSION%\include\%KIT_WIN_NUM%\shared" /I"C:\Program Files (X86)\Windows Kits\%KIT_WIN_VERSION%\include\%KIT_WIN_NUM%\ucrt" /I"C:\Program Files (X86)\Windows Kits\%KIT_WIN_VERSION%\include\%KIT_WIN_NUM%\um" /I"C:\Program Files\Microsoft Visual Studio\%VS_VERSION%\Community\VC\Tools\MSVC\%VS_NUM%\include"
+cl /nologo /FeSampleApp_explicit.exe SampleApp_explicit.obj kernel32.lib user32.lib
+REM 	Run test program of DLL with explicit load
+SampleApp_explicit.exe
+SET PATH=%PATHINIT%
+SET "LIB="
+
+le script de constitution en 64 bits est le suivant :
+
+"compile_link_dll_VS2022_64bits.bat" :
+
+@echo off
+SET PATHINIT=%PATH%
+echo.  ******************                        Compilation de la DLL en mode 32 bits                        *******************
+REM Mandatory, add to PATH the binary directory of compiler VisualC/C++ 32 bits + Kits Windows. You can adapt this directory at your personal software environment.
+SET PATH=C:\Program Files (X86)\Windows Kits\%KIT_WIN_VERSION%\bin\%KIT_WIN_NUM%\x64;C:\Program Files\Microsoft Visual Studio\%VS_VERSION%\Community\VC\Tools\MSVC\%VS_NUM%\bin\Hostx64\x64;%PATH%
+SET LIB="C:\Program Files (X86)\Windows Kits\%KIT_WIN_VERSION%\lib\%KIT_WIN_NUM%\um\x64";"C:\Program Files\Microsoft Visual Studio\%VS_VERSION%\Community\VC\Tools\MSVC\%VS_NUM%\lib\x64";"C:\Program Files (X86)\Windows Kits\%KIT_WIN_VERSION%\lib\%KIT_WIN_NUM%\ucrt\x64";"C:\Program Files\Microsoft Visual Studio\%VS_VERSION%\Community\VC\Tools\MSVC\%VS_NUM%\lib\x64\store"
+SET LIBPATH="."
+REM Options used with Visual C/C++ compiler 32 bits :
+REM 	/Wall								-> set all warning during compilation
+REM		/c 									-> compile and assemble only, not call of linker
+REM 	/Dxxxxxx							-> define variable xxxxxx used by preprocessor of compiler Visual C/C++
+REM 	/Fodll_core.obj 					-> output of object file indicated just after this option 
+echo.  ***************       Compilation de la DLL avec Visual C/C++ 32 bits + Kits Windows.             *****************
+cl /nologo /Wall /c /TP /DNDEBUG SampleDLL.cpp /FoSampleDLL64.obj /I"C:\Program Files (X86)\Windows Kits\%KIT_WIN_VERSION%\include\%KIT_WIN_NUM%\shared" /I"C:\Program Files (X86)\Windows Kits\%KIT_WIN_VERSION%\include\%KIT_WIN_NUM%\ucrt" /I"C:\Program Files (X86)\Windows Kits\%KIT_WIN_VERSION%\include\%KIT_WIN_NUM%\um" /I"C:\Program Files\Microsoft Visual Studio\%VS_VERSION%\Community\VC\Tools\MSVC\%VS_NUM%\include"
+REM Options used with linker Visual C/C++ 32 bits :
+REM		/LD									-> generate a shared library => on Window, generate a DLL (Dynamic Linked Library)
+REM		/MT                     			-> Use static run-time  
+echo.  ***************          Edition de liens de la DLL avec Visual C/C++ 32 bits + Kits Windows.         *******************
+cl /nologo /LD /MT /FeSampleDLL64.dll SampleDLL64.obj kernel32.lib user32.lib
+echo.  ***************              Listage des fonctions exportees de la DLL                                *******************
+REM  	dump result with command "dumpbin" to see exported symbols of dll
+dumpbin /exports  SampleDLL64.dll
+echo.  *************     Generation et lancement du premier programme de test de la DLL en mode implicite.      *******************
+cl /nologo /Wall /c /TP /D_WIN32 /DNDEBUG /FoSampleApp_implicit64.obj SampleApp_implicit.cpp /I"C:\Program Files (X86)\Windows Kits\%KIT_WIN_VERSION%\include\%KIT_WIN_NUM%\shared" /I"C:\Program Files (X86)\Windows Kits\%KIT_WIN_VERSION%\include\%KIT_WIN_NUM%\ucrt" /I"C:\Program Files (X86)\Windows Kits\%KIT_WIN_VERSION%\include\%KIT_WIN_NUM%\um" /I"C:\Program Files\Microsoft Visual Studio\%VS_VERSION%\Community\VC\Tools\MSVC\%VS_NUM%\include"
+REM 	Options used by linker of cl /nologoANG/LLVM compiler
+REM 		/Fexxxxx 						-> Define output file generated by Visual C/C++ compiler, here exe file
+cl /nologo  /FeSampleApp_implicit64.exe SampleApp_implicit64.obj SampleDLL64.lib kernel32.lib user32.lib
+REM 	Run test program of DLL with implicit load
+SampleApp_implicit64.exe
+echo.  ************      Generation et lancement du deuxieme programme de test de la DLL en mode explicite.      *****************
+cl /nologo /c /TP /Wall /EHsc /DNDEBUG /D_WIN32 /FoSampleApp_explicit64.obj SampleApp_explicit.cpp /I"C:\Program Files (X86)\Windows Kits\%KIT_WIN_VERSION%\include\%KIT_WIN_NUM%\shared" /I"C:\Program Files (X86)\Windows Kits\%KIT_WIN_VERSION%\include\%KIT_WIN_NUM%\ucrt" /I"C:\Program Files (X86)\Windows Kits\%KIT_WIN_VERSION%\include\%KIT_WIN_NUM%\um" /I"C:\Program Files\Microsoft Visual Studio\%VS_VERSION%\Community\VC\Tools\MSVC\%VS_NUM%\include"
+cl /nologo /FeSampleApp_explicit64.exe SampleApp_explicit64.obj kernel32.lib user32.lib
+REM 	Run test program of DLL with explicit load
+SampleApp_explicit64.exe
+SET PATH=%PATHINIT%
+SET "LIB="
+
+NB : il y a utilisation d'une petite astuce dans ces deux scripts qui est repris dans la définition d'une variable
+identifiée LIB pour désigner les répertoires des librairies utiles au linker, mais aussi d'une variable LIBPATH qui
+sert à désigner le(s) répertoire(s) supplémentaire(s) de recherche d'autres librairies. J'ai positionné cette dernière
+variable au répertoire courant "SET LIBPATH=.", ce qui permet alors au linker d'aller chercher l'une des deux librairies
+"SampleDLL.lib" (version 32 bits) ou "SampleDLL64.lib" (version 64 bits) directement sur ce répertoire.
+
+Je vous livre le résultat du premier test en 32 bits :
+
+compile_link_dll_VS2022_32bits.bat
+  ******************                        Compilation de la DLL en mode 32 bits                        *******************
+  ***************       Compilation de la DLL avec Visual C/C++ 32 bits + Kits Windows.             *****************
+SampleDLL.cpp
+SampleDLL.cpp(14): warning C4100: 'lpReserved' : paramètre formel non référencé
+SampleDLL.cpp(14): warning C4100: 'ul_reason_for_call' : paramètre formel non référencé
+SampleDLL.cpp(14): warning C4100: 'hModule' : paramètre formel non référencé
+  ***************          Edition de liens de la DLL avec Visual C/C++ 32 bits + Kits Windows.         *******************
+   Création de la bibliothèque SampleDLL.lib et de l'objet SampleDLL.exp
+  ***************              Listage des fonctions exportees de la DLL                                *******************
+Microsoft (R) COFF/PE Dumper Version 14.38.33130.0
+Copyright (C) Microsoft Corporation.  All rights reserved.
+
+
+Dump of file SampleDLL.dll
+
+File Type: DLL
+
+  Section contains the following exports for SampleDLL.dll
+
+    00000000 characteristics
+    FFFFFFFF time date stamp
+        0.00 version
+           1 ordinal base
+           1 number of functions
+           1 number of names
+
+    ordinal hint RVA      name
+
+          1    0 00001000 HelloWorld
+
+  Summary
+
+        2000 .data
+        6000 .rdata
+        1000 .reloc
+        C000 .text
+  *************     Generation et lancement du premier programme de test de la DLL en mode implicite.      *******************
+SampleApp_implicit.cpp
+SampleApp_implicit.cpp(8): warning C4100: 'nCmdShow' : paramètre formel non référencé
+SampleApp_implicit.cpp(8): warning C4100: 'lpCmdLine' : paramètre formel non référencé
+SampleApp_implicit.cpp(8): warning C4100: 'hPrevInstance' : paramètre formel non référencé
+SampleApp_implicit.cpp(8): warning C4100: 'hInstance' : paramètre formel non référencé
+  ************      Generation et lancement du deuxieme programme de test de la DLL en mode explicite.      *****************
+SampleApp_explicit.cpp
+C:\Program Files (X86)\Windows Kits\10\include\10.0.22621.0\um\winbase.h(7810): warning C5039: 'TpSetCallbackCleanupGroup' : un pointeur ou une référence à une fonction pouvant lever une exception a été passé à une fonction 'extern "C"' sous -EHc. Un comportement non défini peut se produire si cette fonction lève une exception.
+SampleApp_explicit.cpp(33): warning C4191: 'cast de type' : une conversion non sécurisée de 'FARPROC' en 'DLLPROC'
+        Making un appel de fonction à l’aide du pointeur résultant peut entraîner l’échec de votre programme.
+SampleApp_explicit.cpp(15): warning C4100: 'nCmdShow' : paramètre formel non référencé
+SampleApp_explicit.cpp(15): warning C4100: 'lpCmdLine' : paramètre formel non référencé
+SampleApp_explicit.cpp(15): warning C4100: 'hPrevInstance' : paramètre formel non référencé
+SampleApp_explicit.cpp(15): warning C4100: 'hInstance' : paramètre formel non référencé
+
+avec, à chaque lancement des programmes de tests, affichage de la "messagebox" attendue (et clic sur OK pour poursuivre).
+
+Et voici le résultat en version 64 bits :
+
+"compile_link_dll_VS2022_64bits.bat"
+  ******************                        Compilation de la DLL en mode 64 bits                        *******************
+  ***************       Compilation de la DLL avec Visual C/C++ 64 bits + Kits Windows.             *****************
+SampleDLL.cpp
+SampleDLL.cpp(14): warning C4100: 'lpReserved' : paramètre formel non référencé
+SampleDLL.cpp(14): warning C4100: 'ul_reason_for_call' : paramètre formel non référencé
+SampleDLL.cpp(14): warning C4100: 'hModule' : paramètre formel non référencé
+  ***************          Edition de liens de la DLL avec Visual C/C++ 64 bits + Kits Windows.         *******************
+   Création de la bibliothèque SampleDLL64.lib et de l'objet SampleDLL64.exp
+  ***************              Listage des fonctions exportees de la DLL                                *******************
+Microsoft (R) COFF/PE Dumper Version 14.38.33130.0
+Copyright (C) Microsoft Corporation.  All rights reserved.
+
+
+Dump of file SampleDLL64.dll
+
+File Type: DLL
+
+  Section contains the following exports for SampleDLL64.dll
+
+    00000000 characteristics
+    FFFFFFFF time date stamp
+        0.00 version
+           1 ordinal base
+           1 number of functions
+           1 number of names
+
+    ordinal hint RVA      name
+
+          1    0 00001000 HelloWorld
+
+  Summary
+
+        2000 .data
+        2000 .pdata
+        A000 .rdata
+        1000 .reloc
+        F000 .text
+        1000 _RDATA
+  *************     Generation et lancement du premier programme de test de la DLL en mode implicite.      *******************
+SampleApp_implicit.cpp
+SampleApp_implicit.cpp(8): warning C4100: 'nCmdShow' : paramètre formel non référencé
+SampleApp_implicit.cpp(8): warning C4100: 'lpCmdLine' : paramètre formel non référencé
+SampleApp_implicit.cpp(8): warning C4100: 'hPrevInstance' : paramètre formel non référencé
+SampleApp_implicit.cpp(8): warning C4100: 'hInstance' : paramètre formel non référencé
+  ************      Generation et lancement du deuxieme programme de test de la DLL en mode explicite.      *****************
+SampleApp_explicit.cpp
+C:\Program Files (X86)\Windows Kits\10\include\10.0.22621.0\um\winbase.h(7810): warning C5039: 'TpSetCallbackCleanupGroup' : un pointeur ou une référence à une fonction pouvant lever une exception a été passé à une fonction 'extern "C"' sous -EHc. Un comportement non défini peut se produire si cette fonction lève une exception.
+SampleApp_explicit.cpp(33): warning C4191: 'cast de type' : une conversion non sécurisée de 'FARPROC' en 'DLLPROC'
+        Making un appel de fonction à l’aide du pointeur résultant peut entraîner l’échec de votre programme.
+SampleApp_explicit.cpp(15): warning C4100: 'nCmdShow' : paramètre formel non référencé
+SampleApp_explicit.cpp(15): warning C4100: 'lpCmdLine' : paramètre formel non référencé
+SampleApp_explicit.cpp(15): warning C4100: 'hPrevInstance' : paramètre formel non référencé
+SampleApp_explicit.cpp(15): warning C4100: 'hInstance' : paramètre formel non référencé
+
+Ce premier bilan étant positif, je décide de poursuivre avec beaucoup plus de fonctions appellées. 
+Pour cet exemple un peu plus consistant, je suis reparti de mes précédents tests en CLANG + VS2022 qui avait été 
+concluants, et il me parait évident que la constitution de DLL avec l'outil "de base" Visual Studio 2022 avec le 
+SDK Windows allait me permettre "d'aller directement au but".
+
+Je vous rappelle donc la liste de mes différents sources :
+
+dll_core.c        (fichier principal de la DLL)  :
+
+//*********************    File : dll_core.c (main core of dll)    *****************
+//       J'ai remis le define ci-dessous, car sans celui-ci, j'obtiens un warning sur une erreur d'interprétation 
+//       de variables de type '_WIN32_WINNT_WIN10_###' dans le fichier suivant :
+// 					C:\Program Files (X86)\Windows Kits\10\include\10.0.22621.0\um\winioctl.h 
+#define WIN32_LEAN_AND_MEAN
+#include <windows.h>
+#include <stdio.h>
+#include "src\dll_share.h"
+
+/*------------------------------------------------------------------------
+ Procedure:     DllMain
+ Purpose:       Dll entry point. Called when a dll is loaded or
+                unloaded by a process, and when new threads are
+                created or destroyed.
+ Input:         hinstDLL : 		instance handle of the dll
+                fdwReason : 	event: attach/detach
+                lpvReserved : 	not used
+ Output:        The return value is used only when the fdwReason is
+                DLL_PROCESS_ATTACH. True means that the dll has
+                sucesfully loaded, False means that the dll is unable
+                to initialize and should be unloaded immediately.
+ Errors:
+------------------------------------------------------------------------*/
+
+//extern "C" BOOL WINAPI DllMain(HINSTANCE hinstDLL, DWORD Reason, LPVOID LPV) {
+//This one was only necessary if you were using a C++ compiler
+
+BOOL WINAPI DllMain(HINSTANCE hinstDLL, DWORD fdwReason, LPVOID lpvReserved) 
+{
+    switch( fdwReason) {
+    case DLL_PROCESS_ATTACH:
+        printf( "DLL attaching to process...\n" );
+        break;
+    case DLL_PROCESS_DETACH:
+        printf( "DLL detaching from process...\n" );
+        break;
+		// The attached process creates a new thread.
+	case DLL_THREAD_ATTACH:
+		printf("The attached process creating a new thread...\n");
+		break;
+		// The thread of the attached process terminates.
+	case DLL_THREAD_DETACH:
+		printf("The thread of the attached process terminates...\n");
+		break;
+	default:
+		printf("Reason called not matched, error if any : %ld...\n", GetLastError());
+		break;
+    }
+    return( 1 );    /* Indicate success */
+}
+
+/*------------------------------------------------------------------------
+
+ Another instructions : 		list of exported functions of DLL. 
+ 
+ All functions must be declared in dll_share.h, but instancied here
+ with body described all instructions to execute "really" that for 
+ which each function is defined. Noted prefix FUNCAPI valued at :
+		__declspec(dllexport) when generate DLL
+		__declspec(dllimport) when use DLL
+ 
+------------------------------------------------------------------------*/
+
+FUNCAPI int Hello()
+ {
+    printf( "Hello from a DLL!\n" );
+    return( 0 );
+ }
+
+FUNCAPI int Addint(int i1, int i2)
+ {
+	return i1 + i2;
+ }
+ 
+FUNCAPI int Subint(int i1, int i2)
+ {
+	return i1 - i2;
+ }
+
+FUNCAPI int Multint(int i1, int i2)
+ { 
+   return i1 * i2;
+ }
+ 
+FUNCAPI int Divint(int i1, int i2) 
+ {
+  if (i2 == 0) { 
+     printf("La division par zero n'est pas autorisee, le retour vaut 1 par défaut.\n");
+     return(1);
+  } else { 
+	  return (i1/i2);
+  }
+ }
+ 
+FUNCAPI int Squarint(int i)
+ { 
+   return i * i;
+ }
+
+FUNCAPI double Adddbl(double i1, double i2)
+ {
+	return i1 + i2;
+ }
+ 
+FUNCAPI double Subdbl(double i1, double i2)
+ {
+	return i1 - i2;
+ }
+
+FUNCAPI double Multdbl(double i1, double i2)
+ { 
+   return i1 * i2;
+ }
+ 
+FUNCAPI double Divdbl(double i1, double i2) 
+ {
+  if (i2 == 0.0) { 
+     printf("La division par zero n'est pas autorisee, le retour vaut 1 par défaut.\n");
+     return(1.0);
+  } else   {
+	  return (i1/i2);
+  }
+ }
+
+FUNCAPI double Squardbl(double i)
+ { 
+   return i * i;
+ }
+//******************************    End file : dll_core.c   *********************************
+
+dll_share.h (fichier d'include pouvant servir aussi bien à la génération comme à l'utilisation de la DLL) :
+
+//**********************  File : dll_share.h (include file shared beetween build or use DLL)  ****************
+#ifndef DLLCODE_H
+#define DLLCODE_H
+
+/* Test Windows platform */
+
+#if defined(__NT__) || defined(_WIN32) || defined(_Windows) // __NT__ with OpenWatcom, _WIN32 with GCC, MSVC, clang, Pelles C, lcc (?) _Windows with Borland C/C++ defined Windows Platforms
+
+  /* You should define BUILD_DLL *only* when building the DLL. */
+  
+  #ifdef BUILD_DLL
+    #define FUNCAPI  __declspec(dllexport)
+  #else
+    #define FUNCAPI  __declspec(dllimport)
+  #endif
+
+  /* Define calling convention in one place, for convenience. */
+  #if defined(__LCC__) // || defined(__WATCOMC__)
+    #define  _stdcall
+  #elif defined (__BORLANDC__) || defined(__POCC__)
+    #define FUNCALL __stdcall
+  #else	
+    #define FUNCALL __cdecl
+  # endif
+
+#elif defined(_linux) || defined(UNIX)
+
+	#if defined(BUILD_DLL) && defined(HAS_GCC_VISIBILITY)
+	#   define FUNCAPI  _attribute_  _((visibility("default")))
+	#endif
+
+#else /* __NT__ or _WIN32 or _Windows or _Linux not defined. */
+
+  /* Define with no value on non-Windows OSes. */
+  #define FUNCAPI
+  #define FUNCALL
+
+#endif
+
+/* if used by C++ code, identify these functions as C items */
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+/*------------------------------------------------------------------------
+
+ Another instructions : 		declarations of exported functions of DLL. 
+ 
+ All functions must be declared here, but instancied in file dll_core.c. 
+ Noted prefix FUNCAPI valued at :
+		__declspec(dllexport) when generate DLL (define BUILD_DLL)
+		__declspec(dllimport) when use DLL (not define BUILD_DLL)
+ 
+------------------------------------------------------------------------*/
+
+FUNCAPI int Hello();
+FUNCAPI int Addint(int i1, int i2);
+FUNCAPI int Subint(int i1, int i2);
+FUNCAPI int Multint(int i1, int i2);
+FUNCAPI int Divint(int i1, int i2);
+FUNCAPI int Squarint(int i);
+FUNCAPI double Adddbl(double i1, double i2);
+FUNCAPI double Subdbl(double i1, double i2);
+FUNCAPI double Multdbl(double i1, double i2);
+FUNCAPI double Divdbl(double i1, double i2);
+FUNCAPI double Squardbl(double i);
+
+#ifdef __cplusplus
+}
+#endif
+
+#endif
+//*****************************          End file : dll_share.h           *****************************
+
+testdll_implicit.c  (le fichier source du programme de test de la DLL en mode implicite)
+
+//*********************  File : testdll_implicit.c (program main test of dll, with load implicit)  *****************
+#define WIN32_LEAN_AND_MEAN
+#include <windows.h>
+#include <stdlib.h>
+#include <stdio.h>
+#include "src\dll_share.h"
+
+int main(int argc, char** argv)
+{
+  int a = 42;
+  int b = 7;
+  int result = 0;
+  double a1 = 16.9;
+  double b1 = 7.3;
+  double result1 = 0.0;
+  
+  Hello();
+  printf("----------------------       Lancement des operations arithmetiques avec des entiers        -----------------------\n");
+  result = Addint(a, b);
+  printf("Le resultat de l'addition de %i plus %i vaut : %i. \t (from application with implicit load of DLL %s)\n", a,b,result,argv[0]);
+  result = Subint(a, b);
+  printf("Le resultat de la soustraction de %i moins %i vaut : %i.  (from application with implicit load of DLL %s)\n", a,b,result,argv[0]);
+  result = Multint(a, b);
+  printf("Le resultat de la multiplication de %i par %i vaut : %i. (from application with implicit load of DLL %s)\n", a,b,result,argv[0]);
+  result = Divint(a, b);
+  printf("Le resultat de la division de %i par %i vaut : %i.         (from application with implicit load of DLL %s)\n", a,b,result,argv[0]);
+  result = Squarint(b);
+  printf("Le carre de %i par %i vaut : %i. \t\t\t\t (from application with implicit load of DLL %s)\n", b,b,result,argv[0]);
+  printf("----------------------    Lancement des operations arithmetiques avec des doubles flottants   ---------------------\n");
+  result1 = Adddbl(a1, b1);
+  printf("La somme de %.1f plus %.1f vaut %.2f. \t       (from application with implicit load of DLL %s)\n", a1,b1,result1,argv[0]);
+  result1 = Subdbl(a1, b1);
+  printf("La soustraction de %.1f moins %.1f vaut %.2f.   (from application with implicit load of DLL %s)\n", a1,b1,result1,argv[0]);
+  result1 = Multdbl(a1, b1);
+  printf("La multiplication de %.1f par %.1f vaut %.2f. (from application with implicit load of DLL %s)\n", a1,b1,result1,argv[0]);
+  result1 = Divdbl(a1, b1);
+  printf("La division de %.1f par %.1f vaut %.3f.        (from application with implicit load of DLL %s)\n", a1,b1,result1,argv[0]);
+  result1 = Squardbl(b1);
+  printf("Le carre de %.1f par %.1f vaut %.2f. \t       (from application with implicit load of DLL %s)\n", b1,b1,result1,argv[0]);	
+
+  return EXIT_SUCCESS;
+}
+// ****************************************   End file : testdll_implicit.c   *******************************************
+
+testdll_explicit.c   (source du programme de test de la DLL en mode console, avec chargement explicite)
+
+//*********************  File : testdll_explicit.c (program main test of dll, with load explicit)  *****************
+#define WIN32_LEAN_AND_MEAN
+#include <windows.h>
+#include <stdio.h>
+// #include "dll_share.h"
+ 
+typedef int (*HelloFunc)();
+typedef int (*AddFuncint)(int,int);
+typedef int (*SubFuncint)(int,int);
+typedef int (*MulFuncint)(int,int);
+typedef int (*DivFuncint)(int,int);
+typedef int (*SquarFuncint)(int);
+typedef double (*AddFuncdbl)(double,double);
+typedef double (*SubFuncdbl)(double,double);
+typedef double (*MulFuncdbl)(double,double);
+typedef double (*DivFuncdbl)(double,double);
+typedef double (*SquarFuncdbl)(double);
+
+
+int main( int argc, char *argv[ ] )
+{
+	int a = 42;
+	int b = 7;
+	int result=0;
+	double a1 = 16.9;
+	double b1 = 7.3;
+	double result1 = 0.0;
+
+#if defined(__x86_64__) || defined(_M_X64) || defined(__amd64__)
+	HINSTANCE hLib = LoadLibrary("dll_core64.dll");
+#else
+	HINSTANCE hLib = LoadLibrary("dll_core.dll");
+#endif
+	
+	if (hLib != NULL) {
+
+		HelloFunc af0 = (HelloFunc)GetProcAddress(hLib, "Hello");	
+		AddFuncint af1 = (AddFuncint)GetProcAddress(hLib, "Addint");
+		SubFuncint af2 = (SubFuncint)GetProcAddress(hLib, "Subint");	
+		MulFuncint af3 = (MulFuncint)GetProcAddress(hLib, "Multint");
+		DivFuncint af4 = (DivFuncint)GetProcAddress(hLib, "Divint");
+		SquarFuncint af5 = (SquarFuncint)GetProcAddress(hLib, "Squarint");
+		AddFuncdbl af6 = (AddFuncdbl)GetProcAddress(hLib, "Adddbl");
+		SubFuncdbl af7 = (SubFuncdbl)GetProcAddress(hLib, "Subdbl");	
+		MulFuncdbl af8 = (MulFuncdbl)GetProcAddress(hLib, "Multdbl");
+		DivFuncdbl af9 = (DivFuncdbl)GetProcAddress(hLib, "Divdbl");
+		SquarFuncdbl af10 = (SquarFuncdbl)GetProcAddress(hLib, "Squardbl");
+	
+		(*af0)();
+		printf("----------------------       Lancement des operations arithmetiques avec des entiers        -----------------------\n");		
+		result = (*af1)(a, b);
+		printf("La somme de %i plus %i vaut %i. \t\t(from application with explicit load of DLL %s)\n", a,b,result,argv[0]);
+		result = (*af2)(a, b);
+		printf("La soustraction de %i moins %i vaut %i.  (from application with explicit load of DLL %s)\n", a,b,result,argv[0]);
+		result = (*af3)(a, b);
+		printf("La multiplication de %i par %i vaut %i. (from application with explicit load of DLL %s)\n", a,b,result,argv[0]);
+		result = (*af4)(a, b);
+		printf("La division de %i par %i vaut %i.         (from application with explicit load of DLL %s)\n", a,b,result,argv[0]);
+		result = (*af5)(b);
+		printf("Le carre de %i par %i vaut %i.\t\t(from application with explicit load of DLL %s)\n", b,b,result,argv[0]);
+		printf("----------------------    Lancement des operations arithmetiques avec des doubles flottants   ---------------------\n");	
+		result1 = (*af6)(a1, b1);
+		printf("La somme de %.1f plus %.1f vaut %.2f. \t       (from application with explicit load of DLL %s)\n", a1,b1,result1,argv[0]);
+		result1 = (*af7)(a1, b1);
+		printf("La soustraction de %.1f moins %.1f vaut %.2f.   (from application with explicit load of DLL %s)\n", a1,b1,result1,argv[0]);
+		result1 = (*af8)(a1, b1);
+		printf("La multiplication de %.1f par %.1f vaut %.2f. (from application with explicit load of DLL %s)\n", a1,b1,result1,argv[0]);
+		result1 = (*af9)(a1, b1);
+		printf("La division de %.1f par %.1f vaut %.3f.        (from application with explicit load of DLL %s)\n", a1,b1,result1,argv[0]);
+		result1 = (*af10)(b1);
+		printf("Le carre de %.1f par %.1f vaut %.2f. \t       (from application with explicit load of DLL %s)\n", b1,b1,result1,argv[0]);	
+		
+		FreeLibrary(hLib);
+		
+	} else { 	
+#if defined(__x86_64__) || defined(_M_X64) || defined(__amd64__)
+		printf("Unable to load the specified DLL : dll_core64.dll.");
+#else
+		printf("Unable to load the specified DLL : dll_core.dll.");
+#endif
+	}
+	
+	return EXIT_SUCCESS;
+}
+// **************************************     End file : testdll_explicit.c     *******************************************
+
+compile_link_dll_VS2022_OK.bat  (le nouveau script de génération de la DLL et des deux programmes de tests : implicite et explicite)
+
+@echo off
+REM
+REM   	Script de génération de la DLL dll_core.dll et des programmee de test : "testdll_implicit.exe" (chargement implicite de la DLL),
+REM 	"testdll_explicit.exe" (chargement explicite de la DLL), et enfin du script de test écrit en python.
+REM		Ce fichier de commande est paramètrable avec deux paraamètres : 
+REM			a) le premier paramètre permet de choisir la compilation et le linkage des programmes en une seule passe
+REM 			soit la compilation et le linkage en deux passes successives : compilation séparée puis linkage,
+REM 		b) le deuxième paramètre définit soit une compilation et un linkage en mode 32 bits, soit en mode 64 bits
+REM 	 		pour les compilateurs qui le supportent.
+REM     Le premier paramètre peut prendre les valeurs suivantes :
+REM 		ONE (or unknown value, because only second value of this parameter is tested during execution) ou TWO.
+REM     Et le deuxième paramètre peut prendre les valeurs suivantes :
+REM 		32, 64 ou  ALL si vous souhaitez lancer les deux générations, 32 bits et 64 bits.
+REM
+REM 	Author : 						Thierry DECHAIZE
+REM		Date creation/modification : 	01/12/2023
+REM 	Reason of modifications : 	n° 1 - Blah Blah Blah ....
+REM 	 							n° 2 - Blah Blah Blah ....	
+REM 	Version number :				1.1.1	          	(version majeure . version mineure . patch level)
+
+echo. Lancement du batch de generation d'une DLL et deux tests de celle-ci avec Visual C/C++ 32 bits ou 64 bits + Kit Windows
+REM     Affichage du nom du système d'exploitation Windows :              			Microsoft Windows 11 Famille (par exemple)
+REM 	Affichage de la version du système Windows :              					10.0.22621 (par exemple)
+REM 	Affichage de l'architecture du processeur supportant le système Windows :   64-bit (par exemple)    
+echo.  *********  Quelques caracteristiques du systeme hebergeant l'environnement de developpement.   ***********
+WMIC OS GET Name
+WMIC OS GET Version
+WMIC OS GET OSArchitecture
+
+REM 	Save of initial PATH on PATHINIT variable
+set PATHINIT=%PATH%
+echo.  **********      Pour cette generation le premier parametre vaut "%1" et le deuxieme "%2".     ************* 
+IF "%2" == "32" ( 
+   call :complink32 %1
+) ELSE (
+   IF "%2" == "64" (
+      call :complink64 %1	  
+   ) ELSE (
+      call :complink32 %1
+	  call :complink64 %1
+	)  
+)
+
+goto FIN
+
+:complink32
+echo.  ******************                        Compilation de la DLL en mode 32 bits                        *******************
+set "PAR1=%~1"
+REM Mandatory, add to PATH the binary directory of compiler VisualC/C++ 32 bits + Kits Windows. You can adapt this directory at your personal software environment.
+SET PATH=C:\Program Files (X86)\Windows Kits\%KIT_WIN_VERSION%\bin\%KIT_WIN_NUM%\x86;C:\Program Files\Microsoft Visual Studio\%VS_VERSION%\Community\VC\Tools\MSVC\%VS_NUM%\bin\Hostx86\x86;;C:\GetGnuWin32\bin;%PATH%
+SET LIB="C:\Program Files (X86)\Windows Kits\%KIT_WIN_VERSION%\lib\%KIT_WIN_NUM%\um\x86";"C:\Program Files\Microsoft Visual Studio\%VS_VERSION%\Community\VC\Tools\MSVC\%VS_NUM%\lib\x86";"C:\Program Files (X86)\Windows Kits\%KIT_WIN_VERSION%\lib\%KIT_WIN_NUM%\ucrt\x86";"C:\Program Files\Microsoft Visual Studio\%VS_VERSION%\Community\VC\Tools\MSVC\%VS_NUM%\lib\x86\store"
+if PAR1 == "TWO" (
+REM Options used with Visual C/C++ compiler 32 bits :
+REM 	/Wall								-> set all warning during compilation
+REM		/c 									-> compile and assemble only, not call of linker
+REM 	/Dxxxxxx							-> define variable xxxxxx used by preprocessor of compiler Visual C/C++
+REM 	/Fodll_core.obj 					-> output of object file indicated just after this option 
+echo.  ***************       Compilation de la DLL avec Visual C/C++ 32 bits + Kits Windows.             *****************
+cl /nologo /Wall /c /DBUILD_DLL /D_WIN32 /DNDEBUG src\dll_core.c /Fodll_core.obj /I"C:\Program Files (X86)\Windows Kits\%KIT_WIN_VERSION%\include\%KIT_WIN_NUM%\shared" /I"C:\Program Files (X86)\Windows Kits\%KIT_WIN_VERSION%\include\%KIT_WIN_NUM%\ucrt" /I"C:\Program Files (X86)\Windows Kits\%KIT_WIN_VERSION%\include\%KIT_WIN_NUM%\um" /I"C:\Program Files\Microsoft Visual Studio\%VS_VERSION%\Community\VC\Tools\MSVC\%VS_NUM%\include"
+REM Options used with linker Visual C/C++ 32 bits :
+REM		/LD									-> generate a shared library => on Window, generate a DLL (Dynamic Linked Library)
+REM		/MT                     			-> Use static run-time  
+echo.  ***************          Edition de liens de la DLL avec Visual C/C++ 32 bits + Kits Windows.     *******************
+cl /nologo /LD /MT /Fedll_core.dll dll_core.obj 
+echo.  ***************              Listage des fonctions exportees de la DLL                                   *******************
+REM  	dump result with command "dumpbin" to see exported symbols of dll
+dumpbin /exports  dll_core.dll
+echo.  *************     Generation et lancement du premier programme de test de la DLL en mode implicite.      *******************
+cl /nologo /Wall /c /D_WIN32 /DNDEBUG /Fotestdll_implicit.obj src\testdll_implicit.c /I"C:\Program Files (X86)\Windows Kits\%KIT_WIN_VERSION%\include\%KIT_WIN_NUM%\shared" /I"C:\Program Files (X86)\Windows Kits\%KIT_WIN_VERSION%\include\%KIT_WIN_NUM%\ucrt" /I"C:\Program Files (X86)\Windows Kits\%KIT_WIN_VERSION%\include\%KIT_WIN_NUM%\um" /I"C:\Program Files\Microsoft Visual Studio\%VS_VERSION%\Community\VC\Tools\MSVC\%VS_NUM%\include"
+REM 	Options used by linker of cl /nologoANG/LLVM compiler
+REM 		/Fexxxxx 						-> Define output file generated by Visual C/C++ compiler, here exe file
+cl /nologo /Fetestdll_implicit.exe testdll_implicit.obj dll_core.lib
+REM 	Run test program of DLL with implicit load
+testdll_implicit.exe
+echo.  ************      Generation et lancement du deuxieme programme de test de la DLL en mode explicite.      *****************
+cl /nologo /c /Wall /DNDEBUG /D_WIN32 /Fotestdll_explicit.obj src\testdll_explicit.c /I"C:\Program Files (X86)\Windows Kits\%KIT_WIN_VERSION%\include\%KIT_WIN_NUM%\shared" /I"C:\Program Files (X86)\Windows Kits\%KIT_WIN_VERSION%\include\%KIT_WIN_NUM%\ucrt" /I"C:\Program Files (X86)\Windows Kits\%KIT_WIN_VERSION%\include\%KIT_WIN_NUM%\um" /I"C:\Program Files\Microsoft Visual Studio\%VS_VERSION%\Community\VC\Tools\MSVC\%VS_NUM%\include"
+cl /nologo /Fetestdll_explicit.exe testdll_explicit.obj
+REM 	Run test program of DLL with explicit load
+testdll_explicit.exe						
+ ) ELSE (
+REM     Options used by Visual C/C++ compiler 32 bits + Kit Windows
+REM 		/Wall 						-> Set options to generate all warnings
+REM 		/Dxxxxx	 					-> Define variable xxxxxx used by precompiler, here define to build dll with good prefix of functions exported (or imported)
+REM 		/LD							-> Set option to generate shared library .ie. on windows systems DLL
+REM			/MT                     	-> Use static run-time
+REM 		/Fexxxxx 					-> Define output file generated by Visual C/C++ compiler, here dll file
+cl /nologo /Wall /DBUILD_DLL /D_WIN32 /DNDEBUG /LD /MT src\dll_core.c /Fedll_core.dll  /I"C:\Program Files (X86)\Windows Kits\%KIT_WIN_VERSION%\include\%KIT_WIN_NUM%\shared" /I"C:\Program Files (X86)\Windows Kits\%KIT_WIN_VERSION%\include\%KIT_WIN_NUM%\ucrt" /I"C:\Program Files (X86)\Windows Kits\%KIT_WIN_VERSION%\include\%KIT_WIN_NUM%\um" /I"C:\Program Files\Microsoft Visual Studio\%VS_VERSION%\Community\VC\Tools\MSVC\%VS_NUM%\include"
+echo.  ************     			Dump des symboles exportes de la DLL dll_core.dll      				       *************
+REM  	dump result with command "dumpbin" to see exported symbols of dll
+dumpbin /exports  dll_core.dll
+echo.  ************     Generation et lancement du premier programme de test de la DLL en mode implicite.      *************
+cl /nologo /Wall /DNDEBUG /D_WIN32 /Fetestdll_implicit.exe src\testdll_implicit.c dll_core.lib /I"C:\Program Files (X86)\Windows Kits\%KIT_WIN_VERSION%\include\%KIT_WIN_NUM%\shared" /I"C:\Program Files (X86)\Windows Kits\%KIT_WIN_VERSION%\include\%KIT_WIN_NUM%\ucrt" /I"C:\Program Files (X86)\Windows Kits\%KIT_WIN_VERSION%\include\%KIT_WIN_NUM%\um" /I"C:\Program Files\Microsoft Visual Studio\%VS_VERSION%\Community\VC\Tools\MSVC\%VS_NUM%\include"
+REM 	Run test program of DLL with implicit load
+testdll_implicit.exe
+echo.  ************     Generation et lancement du deuxieme programme de test de la DLL en mode explicite.     *************
+cl /nologo /Wall /DNDEBUG /D_WIN32 /Fetestdll_explicit.exe src\testdll_explicit.c /I"C:\Program Files (X86)\Windows Kits\%KIT_WIN_VERSION%\include\%KIT_WIN_NUM%\shared" /I"C:\Program Files (X86)\Windows Kits\%KIT_WIN_VERSION%\include\%KIT_WIN_NUM%\ucrt" /I"C:\Program Files (X86)\Windows Kits\%KIT_WIN_VERSION%\include\%KIT_WIN_NUM%\um" /I"C:\Program Files\Microsoft Visual Studio\%VS_VERSION%\Community\VC\Tools\MSVC\%VS_NUM%\include"
+REM 	Run test program of DLL with explicit load
+testdll_explicit.exe
+)
+echo.  ****************               Lancement du script python 32 bits de test de la DLL.               ********************
+%PYTHON32% version.py
+REM 	Run test python script of DLL with explicit load
+%PYTHON32% testdll_cdecl.py dll_core.dll
+REM 	Return in initial PATH
+set PATH=%PATHINIT%
+set "LIB="
+exit /B 
+
+:complink64
+echo.  ******************             Compilation de la DLL en mode 64 bits               *******************
+set "PAR1=%~1"
+REM      Mandatory, add to PATH the binary directory of compiler Visual C/C++ 64 bits + kits Windows. You can adapt this directory at your personal software environment.
+SET PATH=C:\Program Files (X86)\Windows Kits\%KIT_WIN_VERSION%\bin\%KIT_WIN_NUM%\x64;C:\Program Files\Microsoft Visual Studio\%VS_VERSION%\Community\VC\Tools\MSVC\%VS_NUM%\bin\Hostx64\x64;;C:\GetGnuWin32\bin;%PATH%
+SET LIB="C:\Program Files (X86)\Windows Kits\%KIT_WIN_VERSION%\lib\%KIT_WIN_NUM%\um\x64";"C:\Program Files\Microsoft Visual Studio\%VS_VERSION%\Community\VC\Tools\MSVC\%VS_NUM%\lib\x64";"C:\Program Files (X86)\Windows Kits\%KIT_WIN_VERSION%\lib\%KIT_WIN_NUM%\ucrt\x64";"C:\Program Files\Microsoft Visual Studio\%VS_VERSION%\Community\VC\Tools\MSVC\%VS_NUM%\lib\x64\store"
+if PAR1 == "TWO" (
+REM Options used with  Visual C/C++ compiler 64 bits 
+REM 	/Wall								-> set all warning during compilation
+REM		/c 									-> compile and assemble only, not call of linker
+REM 	/Dxxxxxx							-> define variable xxxxxx used by preprocessor of compiler Visual C/C++
+REM 	/Fodll_core.obj 					-> output of object file indicated just after this option 
+echo.  ***************       Compilation de la DLL avec Visual C/C++ 64 bits + Kits Windows.             *****************
+cl /nologo /Wall /c /DBUILD_DLL /D_WIN32 /DNDEBUG src\dll_core.c /Fodll_core64.obj /I"C:\Program Files (X86)\Windows Kits\%KIT_WIN_VERSION%\include\%KIT_WIN_NUM%\shared" /I"C:\Program Files (X86)\Windows Kits\%KIT_WIN_VERSION%\include\%KIT_WIN_NUM%\ucrt" /I"C:\Program Files (X86)\Windows Kits\%KIT_WIN_VERSION%\include\%KIT_WIN_NUM%\um" /I"C:\Program Files\Microsoft Visual Studio\%VS_VERSION%\Community\VC\Tools\MSVC\%VS_NUM%\include"
+REM Options used with linker cl /nologoANG/LLVM 64 bits (very similar with syntax of Visual C/C++ compiler) :
+REM		/LD									-> generate a shared library => on Window, generate a DLL (Dynamic Linked Library)
+REM		/MT                     			-> Use static run-time  
+echo.  ***************          Edition de liens de la DLL avec Visual C/C++ 64 bits + Kits Windows.     *******************
+cl /nologo /LD /MT /Fedll_core64.dll dll_core64.obj 
+echo.  ***************              Listage des fonctions exportees de la DLL                                   *******************
+REM  	dump result with command "dumpbin" to see exported symbols of dll
+dumpbin /exports  dll_core64.dll
+echo.  *************     Generation et lancement du premier programme de test de la DLL en mode implicite.      *******************
+cl /nologo /Wall /c /D_WIN32 /DNDEBUG /Fotestdll_implicit64.obj src\testdll_implicit.c /I"C:\Program Files (X86)\Windows Kits\%KIT_WIN_VERSION%\include\%KIT_WIN_NUM%\shared" /I"C:\Program Files (X86)\Windows Kits\%KIT_WIN_VERSION%\include\%KIT_WIN_NUM%\ucrt" /I"C:\Program Files (X86)\Windows Kits\%KIT_WIN_VERSION%\include\%KIT_WIN_NUM%\um" /I"C:\Program Files\Microsoft Visual Studio\%VS_VERSION%\Community\VC\Tools\MSVC\%VS_NUM%\include"
+REM 	Options used by linker of VisualC/C++ compiler
+REM 		/Fexxxxx 						-> Define output file generated by Visual C/C++ compiler, here exe file
+cl /nologo /Fetestdll_implicit64.exe testdll_implicit64.obj dll_core64.lib
+REM 	Run test program of DLL with implicit load
+testdll_implicit64.exe
+echo.  ************      Generation et lancement du deuxieme programme de test de la DLL en mode explicite.      *****************
+cl /nologo /c /Wall /DNDEBUG /D_WIN32 /Fotestdll_explicit64.obj src\testdll_explicit.c /I"C:\Program Files (X86)\Windows Kits\%KIT_WIN_VERSION%\include\%KIT_WIN_NUM%\shared" /I"C:\Program Files (X86)\Windows Kits\%KIT_WIN_VERSION%\include\%KIT_WIN_NUM%\ucrt" /I"C:\Program Files (X86)\Windows Kits\%KIT_WIN_VERSION%\include\%KIT_WIN_NUM%\um" /I"C:\Program Files\Microsoft Visual Studio\%VS_VERSION%\Community\VC\Tools\MSVC\%VS_NUM%\include"
+cl /nologo /Fetestdll_explicit64.exe testdll_explicit64.obj
+REM 	Run test program of DLL with explicit load
+testdll_explicit64.exe					
+ ) ELSE (
+REM     Options used by  Visual C/C++ compiler 64 bits + Kit Windows
+REM 		/Wall 						-> Set options to generate all warnings
+REM 		/Dxxxxx	 					-> Define variable xxxxxx used by precompiler, here define to build dll with good prefix of functions exported (or imported)
+REM 		/LD							-> Set option to generate shared library .ie. on windows systems DLL
+REM			/MT                     	-> Use static run-time
+REM 		/Fexxxxx 					-> Define output file generated by  Visual C/C++ compiler, here dll file
+cl /nologo /Wall /DBUILD_DLL /D_WIN32 /DNDEBUG /LD /MT src\dll_core.c /Fedll_core64.dll  /I"C:\Program Files (X86)\Windows Kits\%KIT_WIN_VERSION%\include\%KIT_WIN_NUM%\shared" /I"C:\Program Files (X86)\Windows Kits\%KIT_WIN_VERSION%\include\%KIT_WIN_NUM%\ucrt" /I"C:\Program Files (X86)\Windows Kits\%KIT_WIN_VERSION%\include\%KIT_WIN_NUM%\um" /I"C:\Program Files\Microsoft Visual Studio\%VS_VERSION%\Community\VC\Tools\MSVC\%VS_NUM%\include"
+echo.  ************     			Dump des symboles exportes de la DLL dll_core64.dll      				   *************
+REM  	dump result with command "dumpbin" to see exported symbols of dll
+dumpbin /exports  dll_core64.dll
+echo.  ************     Generation et lancement du premier programme de test de la DLL en mode implicite.      *************
+cl /nologo /Wall /DNDEBUG /D_WIN32 /Fetestdll_implicit64.exe src\testdll_implicit.c dll_core64.lib /I"C:\Program Files (X86)\Windows Kits\%KIT_WIN_VERSION%\include\%KIT_WIN_NUM%\shared" /I"C:\Program Files (X86)\Windows Kits\%KIT_WIN_VERSION%\include\%KIT_WIN_NUM%\ucrt" /I"C:\Program Files (X86)\Windows Kits\%KIT_WIN_VERSION%\include\%KIT_WIN_NUM%\um" /I"C:\Program Files\Microsoft Visual Studio\%VS_VERSION%\Community\VC\Tools\MSVC\%VS_NUM%\include"
+REM 	Run test program of DLL with implicit load
+testdll_implicit64.exe
+echo.  ************     Generation et lancement du deuxieme programme de test de la DLL en mode explicite.     *************
+cl /nologo /Wall /DNDEBUG /D_WIN32 /Fetestdll_explicit64.exe src\testdll_explicit.c /I"C:\Program Files (X86)\Windows Kits\%KIT_WIN_VERSION%\include\%KIT_WIN_NUM%\shared" /I"C:\Program Files (X86)\Windows Kits\%KIT_WIN_VERSION%\include\%KIT_WIN_NUM%\ucrt" /I"C:\Program Files (X86)\Windows Kits\%KIT_WIN_VERSION%\include\%KIT_WIN_NUM%\um" /I"C:\Program Files\Microsoft Visual Studio\%VS_VERSION%\Community\VC\Tools\MSVC\%VS_NUM%\include"
+REM 	Run test program of DLL with explicit load
+testdll_explicit64.exe
+)					
+echo.  ****************               Lancement du script python 64 bits de test de la DLL.               *******************
+%PYTHON64% version.py
+REM 	Run test python script of DLL with explicit load
+%PYTHON64% testdll_cdecl.py dll_core64.dll
+REM 	Return in initial PATH
+set PATH=%PATHINIT%
+set "LIB="
+exit /B 
+
+:FIN
+echo.        Fin de la generation de la DLL et des tests avec Visual C/C++ 32 bits ou 64 bits + Kits Windows.
+
+Le script python de test de la DLL est le suivant
+
+testdll_cdecl.py :
+
+# **************************************     File : testdll_cdecl.py     ******************************
+#testdll_cdecl.py
+import ctypes, ctypes.util
+import os
+import sys
+
+if len( sys.argv ) == 1:
+    print( "testdll_cdecl.py script wrote by Thierry DECHAIZE, thierry.dechaize@gmail.com" )
+    print( "\tusage: python test_add_cdecl.py Name_of_Dll." )
+    exit()
+
+cwd = os.getcwd()
+dll_name = cwd + '\\' + sys.argv[1]
+mydll_path = ctypes.util.find_library(dll_name)
+if not mydll_path:
+    print("Unable to find the specified DLL.")
+    sys.exit()
+  
+#mydll = ctypes.WinDLL(dll_name)          # load the dll __stdcall  
+try:    
+    mydll = ctypes.CDLL(dll_name)      # load the dll __cdecl
+except OSError:
+    print(f"Unable to load the specified DLL : {sys.argv[1]}.")
+    sys.exit()
+    
+# test mandatory in case of Borland generation, the export function is decorated by "_" prefix  => call _Add
+if 'BC55' in sys.argv[1]  or 'PELLESC64' in sys.argv[1] or 'OW32' in sys.argv[1]: 
+#   mydll._Hello(None)
+    print(f"----------------------       Lancement des operations arithmetiques avec des entiers        -----------------------");
+    mydll._Addint.argtypes = [ctypes.c_int, ctypes.c_int]
+    print(f"La somme de 42 plus 7 vaut {mydll._Addint(42, 7)}. (from script python {sys.argv[0]})")
+    mydll._Subint.argtypes = [ctypes.c_int, ctypes.c_int]
+    print(f"La difference de 42 moins 7 vaut {mydll._Subint(42, 7)}. (from script python {sys.argv[0]})")
+    mydll._Multint.argtypes = [ctypes.c_int, ctypes.c_int]
+    print(f"La multiplication de 42 par 7 vaut {mydll._Multint(42, 7)}. (from script python {sys.argv[0]})")
+    mydll.Squareint.argtypes = [ctypes.c_int]
+    print(f"Le carre de 7 par 7 vaut {mydll._Squarint(7)}. (from script python {sys.argv[0]})")
+    print(f"----------------------    Lancement des operations arithmetiques avec des doubles flottants   ---------------------");
+    mydll._Adddbl.argtypes = [ctypes.c_double, ctypes.c_double]
+    mydll._Adddbl.restype = ctypes.c_double
+    print(f"La somme de 16.9 plus 7.3 vaut {mydll._Adddbl(16.9, 7.3)}. (from script python {sys.argv[0]})")
+    mydll._Subdbl.argtypes = [ctypes.c_double, ctypes.c_double]
+    mydll._Subdbl.restype = ctypes.c_double
+    print(f"La difference de 16.9 moins 7.3 vaut {mydll._Subdbl(16.9, 7.3)}. (from script python {sys.argv[0]})")
+    mydll._Multdbl.argtypes = [ctypes.c_double, ctypes.c_double]
+    mydll._Multdbl.restype = ctypes.c_double
+    print(f"La multiplication de 16.9 par 7.3 vaut {mydll._Multdbl(16.9, 7.3)}. (from script python {sys.argv[0]})")
+    mydll._Squardbl.argtypes = [ctypes.c_double]
+    mydll._Squardbl.restype = ctypes.c_double
+    print(f"Le carre de 7.3 par 7.3 vaut {mydll._Squardbl(7.3)}. (from script python {sys.argv[0]})")
+else:
+    mydll.Hello(None)
+    print(f"----------------------       Lancement des operations arithmetiques avec des entiers        -----------------------");
+    mydll.Addint.argtypes = [ctypes.c_int, ctypes.c_int]
+    mydll.Addint.restype = ctypes.c_int
+    result = mydll.Addint(42,7)
+    print(f"La somme de 42 plus 7 vaut {result}.                  (from script python {sys.argv[0]})")
+    mydll.Subint.argtypes = [ctypes.c_int, ctypes.c_int]
+    mydll.Subint.restype = ctypes.c_int
+    result = mydll.Subint(42,7)
+    print(f"La difference de 42 moins 7 vaut {result}.            (from script python {sys.argv[0]})")
+    mydll.Multint.argtypes = [ctypes.c_int, ctypes.c_int]
+    mydll.Multint.restype = ctypes.c_int
+    result = mydll.Multint(42,7)
+    print(f"La multiplication de 42 par 7 vaut {result}.         (from script python {sys.argv[0]})")
+    mydll.Divint.argtypes = [ctypes.c_int, ctypes.c_int]
+    mydll.Divint.restype = ctypes.c_int
+    result = mydll.Divint(42,7)
+    print(f"La division de 42 par 7 vaut {result}.                 (from script python {sys.argv[0]})")
+    mydll.Squarint.argtypes = [ctypes.c_int]
+    mydll.Squarint.restype = ctypes.c_int
+    result = mydll.Squarint(7)
+    print(f"Le carre de 7 par 7 vaut {result}.                    (from script python {sys.argv[0]})")
+    print(f"----------------------    Lancement des operations arithmetiques avec des doubles flottants   ---------------------");
+    mydll.Adddbl.argtypes = [ctypes.c_double, ctypes.c_double]
+    mydll.Adddbl.restype = ctypes.c_double
+    print(f"La somme de 16.9 plus 7.3 vaut {mydll.Adddbl(16.9, 7.3)}.                  (from script python {sys.argv[0]})")
+    mydll.Subdbl.argtypes = [ctypes.c_double, ctypes.c_double]
+    mydll.Subdbl.restype = ctypes.c_double
+    print(f"La difference de 16.9 moins 7.3 vaut {"{0:g}".format(mydll.Subdbl(16.9, 7.3))}.             (from script python {sys.argv[0]})")
+    mydll.Multdbl.argtypes = [ctypes.c_double, ctypes.c_double]
+    mydll.Multdbl.restype = ctypes.c_double
+    print(f"La multiplication de 16.9 par 7.3 vaut {"{0:g}".format(mydll.Multdbl(16.9, 7.3))}.        (from script python {sys.argv[0]})")
+    mydll.Divdbl.argtypes = [ctypes.c_double, ctypes.c_double]
+    mydll.Divdbl.restype = ctypes.c_double
+    print(f"La division de 16.9 par 7.3 vaut {"{0:g}".format(mydll.Divdbl(16.9, 7.3))}.             (from script python {sys.argv[0]})")
+    mydll.Squardbl.argtypes = [ctypes.c_double]
+    mydll.Squardbl.restype = ctypes.c_double
+    print(f"Le carre de 7.3 par 7.3 vaut {"{0:g}".format(mydll.Squardbl(7.3))}.                   (from script python {sys.argv[0]})")
+# **************************************      End file : testdll_cdecl.py      ******************************
+
+Et voici le résultat (très positif) de ce test en paramétrant les deux générations d'abord en une puis en deux passes :
+
+"compile_link_dll_VS2022_OK.bat ONE ALL"
+ Lancement du batch de generation d'une DLL et deux tests de celle-ci avec Visual C/C++ 32 bits ou 64 bits + Kit Windows
+  *********  Quelques caracteristiques du systeme hebergeant l'environnement de developpement.   ***********
+Name
+Microsoft Windows 11 Famille|C:\WINDOWS|\Device\Harddisk1\Partition3
+
+Version
+10.0.22631
+
+OSArchitecture
+64-bit
+
+  **********      Pour cette generation le premier parametre vaut "ONE" et le deuxieme "ALL".     *************
+  ******************                        Compilation de la DLL en mode 32 bits                        *******************
+dll_core.c
+C:\src\VC\TestDLL\src\dll_share.h(56): warning C4255: 'Hello' : aucun prototype de fonction fourni : conversion de '()' en '(void)'
+src\dll_core.c(25): warning C4100: 'lpvReserved' : paramètre formel non référencé
+src\dll_core.c(25): warning C4100: 'hinstDLL' : paramètre formel non référencé
+src\dll_core.c(62): warning C4255: 'Hello' : aucun prototype de fonction fourni : conversion de '()' en '(void)'
+   Création de la bibliothèque dll_core.lib et de l'objet dll_core.exp
+  ************                          Dump des symboles exportes de la DLL dll_core.dll                                      *************
+Microsoft (R) COFF/PE Dumper Version 14.38.33130.0
+Copyright (C) Microsoft Corporation.  All rights reserved.
+
+
+Dump of file dll_core.dll
+
+File Type: DLL
+
+  Section contains the following exports for dll_core.dll
+
+    00000000 characteristics
+    FFFFFFFF time date stamp
+        0.00 version
+           1 ordinal base
+          11 number of functions
+          11 number of names
+
+    ordinal hint RVA      name
+
+          1    0 00001090 Adddbl
+          2    1 00001020 Addint
+          3    2 000010F0 Divdbl
+          4    3 00001050 Divint
+          5    4 00001000 Hello
+          6    5 000010D0 Multdbl
+          7    6 00001040 Multint
+          8    7 00001140 Squardbl
+          9    8 00001080 Squarint
+         10    9 000010B0 Subdbl
+         11    A 00001030 Subint
+
+  Summary
+
+        2000 .data
+        7000 .rdata
+        1000 .reloc
+       12000 .text
+  ************     Generation et lancement du premier programme de test de la DLL en mode implicite.      *************
+testdll_implicit.c
+C:\src\VC\TestDLL\src\dll_share.h(56): warning C4255: 'Hello' : aucun prototype de fonction fourni : conversion de '()' en '(void)'
+src\testdll_implicit.c(8): warning C4100: 'argc' : paramètre formel non référencé
+DLL attaching to process...
+Hello from a DLL!
+----------------------       Lancement des operations arithmetiques avec des entiers        -----------------------
+Le resultat de l'addition de 42 plus 7 vaut : 49.        (from application with implicit load of DLL testdll_implicit.exe)
+Le resultat de la soustraction de 42 moins 7 vaut : 35.  (from application with implicit load of DLL testdll_implicit.exe)
+Le resultat de la multiplication de 42 par 7 vaut : 294. (from application with implicit load of DLL testdll_implicit.exe)
+Le resultat de la division de 42 par 7 vaut : 6.         (from application with implicit load of DLL testdll_implicit.exe)
+Le carre de 7 par 7 vaut : 49.                           (from application with implicit load of DLL testdll_implicit.exe)
+----------------------    Lancement des operations arithmetiques avec des doubles flottants   ---------------------
+La somme de 16.9 plus 7.3 vaut 24.20.          (from application with implicit load of DLL testdll_implicit.exe)
+La soustraction de 16.9 moins 7.3 vaut 9.60.   (from application with implicit load of DLL testdll_implicit.exe)
+La multiplication de 16.9 par 7.3 vaut 123.37. (from application with implicit load of DLL testdll_implicit.exe)
+La division de 16.9 par 7.3 vaut 2.315.        (from application with implicit load of DLL testdll_implicit.exe)
+Le carre de 7.3 par 7.3 vaut 53.29.            (from application with implicit load of DLL testdll_implicit.exe)
+DLL detaching from process...
+  ************     Generation et lancement du deuxieme programme de test de la DLL en mode explicite.     *************
+testdll_explicit.c
+src\testdll_explicit.c(8): warning C4255: 'HelloFunc' : aucun prototype de fonction fourni : conversion de '()' en '(void)'
+src\testdll_explicit.c(38): warning C4191: 'cast de type' : une conversion non sécurisée de 'FARPROC' en 'HelloFunc'
+        Making un appel de fonction à l’aide du pointeur résultant peut entraîner l’échec de votre programme.
+src\testdll_explicit.c(39): warning C4191: 'cast de type' : une conversion non sécurisée de 'FARPROC' en 'AddFuncint'
+        Making un appel de fonction à l’aide du pointeur résultant peut entraîner l’échec de votre programme.
+src\testdll_explicit.c(40): warning C4191: 'cast de type' : une conversion non sécurisée de 'FARPROC' en 'SubFuncint'
+        Making un appel de fonction à l’aide du pointeur résultant peut entraîner l’échec de votre programme.
+src\testdll_explicit.c(41): warning C4191: 'cast de type' : une conversion non sécurisée de 'FARPROC' en 'MulFuncint'
+        Making un appel de fonction à l’aide du pointeur résultant peut entraîner l’échec de votre programme.
+src\testdll_explicit.c(42): warning C4191: 'cast de type' : une conversion non sécurisée de 'FARPROC' en 'DivFuncint'
+        Making un appel de fonction à l’aide du pointeur résultant peut entraîner l’échec de votre programme.
+src\testdll_explicit.c(43): warning C4191: 'cast de type' : une conversion non sécurisée de 'FARPROC' en 'SquarFuncint'
+        Making un appel de fonction à l’aide du pointeur résultant peut entraîner l’échec de votre programme.
+src\testdll_explicit.c(44): warning C4191: 'cast de type' : une conversion non sécurisée de 'FARPROC' en 'AddFuncdbl'
+        Making un appel de fonction à l’aide du pointeur résultant peut entraîner l’échec de votre programme.
+src\testdll_explicit.c(45): warning C4191: 'cast de type' : une conversion non sécurisée de 'FARPROC' en 'SubFuncdbl'
+        Making un appel de fonction à l’aide du pointeur résultant peut entraîner l’échec de votre programme.
+src\testdll_explicit.c(46): warning C4191: 'cast de type' : une conversion non sécurisée de 'FARPROC' en 'MulFuncdbl'
+        Making un appel de fonction à l’aide du pointeur résultant peut entraîner l’échec de votre programme.
+src\testdll_explicit.c(47): warning C4191: 'cast de type' : une conversion non sécurisée de 'FARPROC' en 'DivFuncdbl'
+        Making un appel de fonction à l’aide du pointeur résultant peut entraîner l’échec de votre programme.
+src\testdll_explicit.c(48): warning C4191: 'cast de type' : une conversion non sécurisée de 'FARPROC' en 'SquarFuncdbl'
+        Making un appel de fonction à l’aide du pointeur résultant peut entraîner l’échec de votre programme.
+src\testdll_explicit.c(21): warning C4100: 'argc' : paramètre formel non référencé
+DLL attaching to process...
+Hello from a DLL!
+----------------------       Lancement des operations arithmetiques avec des entiers        -----------------------
+La somme de 42 plus 7 vaut 49.          (from application with explicit load of DLL testdll_explicit.exe)
+La soustraction de 42 moins 7 vaut 35.  (from application with explicit load of DLL testdll_explicit.exe)
+La multiplication de 42 par 7 vaut 294. (from application with explicit load of DLL testdll_explicit.exe)
+La division de 42 par 7 vaut 6.         (from application with explicit load of DLL testdll_explicit.exe)
+Le carre de 7 par 7 vaut 49.            (from application with explicit load of DLL testdll_explicit.exe)
+----------------------    Lancement des operations arithmetiques avec des doubles flottants   ---------------------
+La somme de 16.9 plus 7.3 vaut 24.20.          (from application with explicit load of DLL testdll_explicit.exe)
+La soustraction de 16.9 moins 7.3 vaut 9.60.   (from application with explicit load of DLL testdll_explicit.exe)
+La multiplication de 16.9 par 7.3 vaut 123.37. (from application with explicit load of DLL testdll_explicit.exe)
+La division de 16.9 par 7.3 vaut 2.315.        (from application with explicit load of DLL testdll_explicit.exe)
+Le carre de 7.3 par 7.3 vaut 53.29.            (from application with explicit load of DLL testdll_explicit.exe)
+DLL detaching from process...
+  ****************               Lancement du script python 32 bits de test de la DLL.               ********************
+Version python : 3.12 (32bit)
+DLL attaching to process...
+Hello from a DLL!
+----------------------       Lancement des operations arithmetiques avec des entiers        -----------------------
+La somme de 42 plus 7 vaut 49.                  (from script python testdll_cdecl.py)
+La difference de 42 moins 7 vaut 35.            (from script python testdll_cdecl.py)
+La multiplication de 42 par 7 vaut 294.         (from script python testdll_cdecl.py)
+La division de 42 par 7 vaut 6.                 (from script python testdll_cdecl.py)
+Le carre de 7 par 7 vaut 49.                    (from script python testdll_cdecl.py)
+----------------------    Lancement des operations arithmetiques avec des doubles flottants   ---------------------
+La somme de 16.9 plus 7.3 vaut 24.2.                  (from script python testdll_cdecl.py)
+La difference de 16.9 moins 7.3 vaut 9.6.             (from script python testdll_cdecl.py)
+La multiplication de 16.9 par 7.3 vaut 123.37.        (from script python testdll_cdecl.py)
+La division de 16.9 par 7.3 vaut 2.31507.             (from script python testdll_cdecl.py)
+Le carre de 7.3 par 7.3 vaut 53.29.                   (from script python testdll_cdecl.py)
+DLL detaching from process...
+  ******************             Compilation de la DLL en mode 64 bits               *******************
+dll_core.c
+C:\src\VC\TestDLL\src\dll_share.h(56): warning C4255: 'Hello' : aucun prototype de fonction fourni : conversion de '()' en '(void)'
+src\dll_core.c(25): warning C4100: 'lpvReserved' : paramètre formel non référencé
+src\dll_core.c(25): warning C4100: 'hinstDLL' : paramètre formel non référencé
+src\dll_core.c(62): warning C4255: 'Hello' : aucun prototype de fonction fourni : conversion de '()' en '(void)'
+   Création de la bibliothèque dll_core64.lib et de l'objet dll_core64.exp
+  ************                          Dump des symboles exportes de la DLL dll_core64.dll                                        *************
+Microsoft (R) COFF/PE Dumper Version 14.38.33130.0
+Copyright (C) Microsoft Corporation.  All rights reserved.
+
+
+Dump of file dll_core64.dll
+
+File Type: DLL
+
+  Section contains the following exports for dll_core64.dll
+
+    00000000 characteristics
+    FFFFFFFF time date stamp
+        0.00 version
+           1 ordinal base
+          11 number of functions
+          11 number of names
+
+    ordinal hint RVA      name
+
+          1    0 000010E0 Adddbl
+          2    1 00001020 Addint
+          3    2 00001140 Divdbl
+          4    3 00001080 Divint
+          5    4 00001000 Hello
+          6    5 00001120 Multdbl
+          7    6 00001060 Multint
+          8    7 000011A0 Squardbl
+          9    8 000010C0 Squarint
+         10    9 00001100 Subdbl
+         11    A 00001040 Subint
+
+  Summary
+
+        2000 .data
+        2000 .pdata
+        B000 .rdata
+        1000 .reloc
+       15000 .text
+        1000 _RDATA
+  ************     Generation et lancement du premier programme de test de la DLL en mode implicite.      *************
+testdll_implicit.c
+C:\src\VC\TestDLL\src\dll_share.h(56): warning C4255: 'Hello' : aucun prototype de fonction fourni : conversion de '()' en '(void)'
+src\testdll_implicit.c(8): warning C4100: 'argc' : paramètre formel non référencé
+DLL attaching to process...
+Hello from a DLL!
+----------------------       Lancement des operations arithmetiques avec des entiers        -----------------------
+Le resultat de l'addition de 42 plus 7 vaut : 49.        (from application with implicit load of DLL testdll_implicit64.exe)
+Le resultat de la soustraction de 42 moins 7 vaut : 35.  (from application with implicit load of DLL testdll_implicit64.exe)
+Le resultat de la multiplication de 42 par 7 vaut : 294. (from application with implicit load of DLL testdll_implicit64.exe)
+Le resultat de la division de 42 par 7 vaut : 6.         (from application with implicit load of DLL testdll_implicit64.exe)
+Le carre de 7 par 7 vaut : 49.                           (from application with implicit load of DLL testdll_implicit64.exe)
+----------------------    Lancement des operations arithmetiques avec des doubles flottants   ---------------------
+La somme de 16.9 plus 7.3 vaut 24.20.          (from application with implicit load of DLL testdll_implicit64.exe)
+La soustraction de 16.9 moins 7.3 vaut 9.60.   (from application with implicit load of DLL testdll_implicit64.exe)
+La multiplication de 16.9 par 7.3 vaut 123.37. (from application with implicit load of DLL testdll_implicit64.exe)
+La division de 16.9 par 7.3 vaut 2.315.        (from application with implicit load of DLL testdll_implicit64.exe)
+Le carre de 7.3 par 7.3 vaut 53.29.            (from application with implicit load of DLL testdll_implicit64.exe)
+DLL detaching from process...
+  ************     Generation et lancement du deuxieme programme de test de la DLL en mode explicite.     *************
+testdll_explicit.c
+src\testdll_explicit.c(8): warning C4255: 'HelloFunc' : aucun prototype de fonction fourni : conversion de '()' en '(void)'
+src\testdll_explicit.c(38): warning C4191: 'cast de type' : une conversion non sécurisée de 'FARPROC' en 'HelloFunc'
+        Making un appel de fonction à l’aide du pointeur résultant peut entraîner l’échec de votre programme.
+src\testdll_explicit.c(39): warning C4191: 'cast de type' : une conversion non sécurisée de 'FARPROC' en 'AddFuncint'
+        Making un appel de fonction à l’aide du pointeur résultant peut entraîner l’échec de votre programme.
+src\testdll_explicit.c(40): warning C4191: 'cast de type' : une conversion non sécurisée de 'FARPROC' en 'SubFuncint'
+        Making un appel de fonction à l’aide du pointeur résultant peut entraîner l’échec de votre programme.
+src\testdll_explicit.c(41): warning C4191: 'cast de type' : une conversion non sécurisée de 'FARPROC' en 'MulFuncint'
+        Making un appel de fonction à l’aide du pointeur résultant peut entraîner l’échec de votre programme.
+src\testdll_explicit.c(42): warning C4191: 'cast de type' : une conversion non sécurisée de 'FARPROC' en 'DivFuncint'
+        Making un appel de fonction à l’aide du pointeur résultant peut entraîner l’échec de votre programme.
+src\testdll_explicit.c(43): warning C4191: 'cast de type' : une conversion non sécurisée de 'FARPROC' en 'SquarFuncint'
+        Making un appel de fonction à l’aide du pointeur résultant peut entraîner l’échec de votre programme.
+src\testdll_explicit.c(44): warning C4191: 'cast de type' : une conversion non sécurisée de 'FARPROC' en 'AddFuncdbl'
+        Making un appel de fonction à l’aide du pointeur résultant peut entraîner l’échec de votre programme.
+src\testdll_explicit.c(45): warning C4191: 'cast de type' : une conversion non sécurisée de 'FARPROC' en 'SubFuncdbl'
+        Making un appel de fonction à l’aide du pointeur résultant peut entraîner l’échec de votre programme.
+src\testdll_explicit.c(46): warning C4191: 'cast de type' : une conversion non sécurisée de 'FARPROC' en 'MulFuncdbl'
+        Making un appel de fonction à l’aide du pointeur résultant peut entraîner l’échec de votre programme.
+src\testdll_explicit.c(47): warning C4191: 'cast de type' : une conversion non sécurisée de 'FARPROC' en 'DivFuncdbl'
+        Making un appel de fonction à l’aide du pointeur résultant peut entraîner l’échec de votre programme.
+src\testdll_explicit.c(48): warning C4191: 'cast de type' : une conversion non sécurisée de 'FARPROC' en 'SquarFuncdbl'
+        Making un appel de fonction à l’aide du pointeur résultant peut entraîner l’échec de votre programme.
+src\testdll_explicit.c(21): warning C4100: 'argc' : paramètre formel non référencé
+DLL attaching to process...
+Hello from a DLL!
+----------------------       Lancement des operations arithmetiques avec des entiers        -----------------------
+La somme de 42 plus 7 vaut 49.          (from application with explicit load of DLL testdll_explicit64.exe)
+La soustraction de 42 moins 7 vaut 35.  (from application with explicit load of DLL testdll_explicit64.exe)
+La multiplication de 42 par 7 vaut 294. (from application with explicit load of DLL testdll_explicit64.exe)
+La division de 42 par 7 vaut 6.         (from application with explicit load of DLL testdll_explicit64.exe)
+Le carre de 7 par 7 vaut 49.            (from application with explicit load of DLL testdll_explicit64.exe)
+----------------------    Lancement des operations arithmetiques avec des doubles flottants   ---------------------
+La somme de 16.9 plus 7.3 vaut 24.20.          (from application with explicit load of DLL testdll_explicit64.exe)
+La soustraction de 16.9 moins 7.3 vaut 9.60.   (from application with explicit load of DLL testdll_explicit64.exe)
+La multiplication de 16.9 par 7.3 vaut 123.37. (from application with explicit load of DLL testdll_explicit64.exe)
+La division de 16.9 par 7.3 vaut 2.315.        (from application with explicit load of DLL testdll_explicit64.exe)
+Le carre de 7.3 par 7.3 vaut 53.29.            (from application with explicit load of DLL testdll_explicit64.exe)
+DLL detaching from process...
+  ****************               Lancement du script python 64 bits de test de la DLL.               *******************
+Version python : 3.12 (64bit)
+DLL attaching to process...
+Hello from a DLL!
+----------------------       Lancement des operations arithmetiques avec des entiers        -----------------------
+La somme de 42 plus 7 vaut 49.                  (from script python testdll_cdecl.py)
+La difference de 42 moins 7 vaut 35.            (from script python testdll_cdecl.py)
+La multiplication de 42 par 7 vaut 294.         (from script python testdll_cdecl.py)
+La division de 42 par 7 vaut 6.                 (from script python testdll_cdecl.py)
+Le carre de 7 par 7 vaut 49.                    (from script python testdll_cdecl.py)
+----------------------    Lancement des operations arithmetiques avec des doubles flottants   ---------------------
+La somme de 16.9 plus 7.3 vaut 24.2.                  (from script python testdll_cdecl.py)
+La difference de 16.9 moins 7.3 vaut 9.6.             (from script python testdll_cdecl.py)
+La multiplication de 16.9 par 7.3 vaut 123.37.        (from script python testdll_cdecl.py)
+La division de 16.9 par 7.3 vaut 2.31507.             (from script python testdll_cdecl.py)
+Le carre de 7.3 par 7.3 vaut 53.29.                   (from script python testdll_cdecl.py)
+DLL detaching from process...
+        Fin de la generation de la DLL et des tests avec Visual C/C++ 32 bits ou 64 bits + Kits Windows.
+
+Le résultat produit en deux passes :
+
+"compile_link_dll_CLANG_VS2022_OK.bat TWO ALL"
+ Lancement du batch de generation d'une DLL et deux tests de celle-ci avec Visual C/C++ 32 bits ou 64 bits + Kit Windows
+  *********  Quelques caracteristiques du systeme hebergeant l'environnement de developpement.   ***********
+Name
+Microsoft Windows 11 Famille|C:\WINDOWS|\Device\Harddisk1\Partition3
+
+Version
+10.0.22631
+
+OSArchitecture
+64-bit
+
+  **********      Pour cette generation le premier parametre vaut "TWO" et le deuxieme "ALL".     *************
+  ******************                        Compilation de la DLL en mode 32 bits                        *******************
+dll_core.c
+C:\src\VC\TestDLL\src\dll_share.h(56): warning C4255: 'Hello' : aucun prototype de fonction fourni : conversion de '()' en '(void)'
+src\dll_core.c(25): warning C4100: 'lpvReserved' : paramètre formel non référencé
+src\dll_core.c(25): warning C4100: 'hinstDLL' : paramètre formel non référencé
+src\dll_core.c(62): warning C4255: 'Hello' : aucun prototype de fonction fourni : conversion de '()' en '(void)'
+   Création de la bibliothèque dll_core.lib et de l'objet dll_core.exp
+  ************                          Dump des symboles exportes de la DLL dll_core.dll                                      *************
+Microsoft (R) COFF/PE Dumper Version 14.38.33130.0
+Copyright (C) Microsoft Corporation.  All rights reserved.
+
+
+Dump of file dll_core.dll
+
+File Type: DLL
+
+  Section contains the following exports for dll_core.dll
+
+    00000000 characteristics
+    FFFFFFFF time date stamp
+        0.00 version
+           1 ordinal base
+          11 number of functions
+          11 number of names
+
+    ordinal hint RVA      name
+
+          1    0 00001090 Adddbl
+          2    1 00001020 Addint
+          3    2 000010F0 Divdbl
+          4    3 00001050 Divint
+          5    4 00001000 Hello
+          6    5 000010D0 Multdbl
+          7    6 00001040 Multint
+          8    7 00001140 Squardbl
+          9    8 00001080 Squarint
+         10    9 000010B0 Subdbl
+         11    A 00001030 Subint
+
+  Summary
+
+        2000 .data
+        7000 .rdata
+        1000 .reloc
+       12000 .text
+  ************     Generation et lancement du premier programme de test de la DLL en mode implicite.      *************
+testdll_implicit.c
+C:\src\VC\TestDLL\src\dll_share.h(56): warning C4255: 'Hello' : aucun prototype de fonction fourni : conversion de '()' en '(void)'
+src\testdll_implicit.c(8): warning C4100: 'argc' : paramètre formel non référencé
+DLL attaching to process...
+Hello from a DLL!
+----------------------       Lancement des operations arithmetiques avec des entiers        -----------------------
+Le resultat de l'addition de 42 plus 7 vaut : 49.        (from application with implicit load of DLL testdll_implicit.exe)
+Le resultat de la soustraction de 42 moins 7 vaut : 35.  (from application with implicit load of DLL testdll_implicit.exe)
+Le resultat de la multiplication de 42 par 7 vaut : 294. (from application with implicit load of DLL testdll_implicit.exe)
+Le resultat de la division de 42 par 7 vaut : 6.         (from application with implicit load of DLL testdll_implicit.exe)
+Le carre de 7 par 7 vaut : 49.                           (from application with implicit load of DLL testdll_implicit.exe)
+----------------------    Lancement des operations arithmetiques avec des doubles flottants   ---------------------
+La somme de 16.9 plus 7.3 vaut 24.20.          (from application with implicit load of DLL testdll_implicit.exe)
+La soustraction de 16.9 moins 7.3 vaut 9.60.   (from application with implicit load of DLL testdll_implicit.exe)
+La multiplication de 16.9 par 7.3 vaut 123.37. (from application with implicit load of DLL testdll_implicit.exe)
+La division de 16.9 par 7.3 vaut 2.315.        (from application with implicit load of DLL testdll_implicit.exe)
+Le carre de 7.3 par 7.3 vaut 53.29.            (from application with implicit load of DLL testdll_implicit.exe)
+DLL detaching from process...
+  ************     Generation et lancement du deuxieme programme de test de la DLL en mode explicite.     *************
+testdll_explicit.c
+src\testdll_explicit.c(8): warning C4255: 'HelloFunc' : aucun prototype de fonction fourni : conversion de '()' en '(void)'
+src\testdll_explicit.c(38): warning C4191: 'cast de type' : une conversion non sécurisée de 'FARPROC' en 'HelloFunc'
+        Making un appel de fonction à l’aide du pointeur résultant peut entraîner l’échec de votre programme.
+src\testdll_explicit.c(39): warning C4191: 'cast de type' : une conversion non sécurisée de 'FARPROC' en 'AddFuncint'
+        Making un appel de fonction à l’aide du pointeur résultant peut entraîner l’échec de votre programme.
+src\testdll_explicit.c(40): warning C4191: 'cast de type' : une conversion non sécurisée de 'FARPROC' en 'SubFuncint'
+        Making un appel de fonction à l’aide du pointeur résultant peut entraîner l’échec de votre programme.
+src\testdll_explicit.c(41): warning C4191: 'cast de type' : une conversion non sécurisée de 'FARPROC' en 'MulFuncint'
+        Making un appel de fonction à l’aide du pointeur résultant peut entraîner l’échec de votre programme.
+src\testdll_explicit.c(42): warning C4191: 'cast de type' : une conversion non sécurisée de 'FARPROC' en 'DivFuncint'
+        Making un appel de fonction à l’aide du pointeur résultant peut entraîner l’échec de votre programme.
+src\testdll_explicit.c(43): warning C4191: 'cast de type' : une conversion non sécurisée de 'FARPROC' en 'SquarFuncint'
+        Making un appel de fonction à l’aide du pointeur résultant peut entraîner l’échec de votre programme.
+src\testdll_explicit.c(44): warning C4191: 'cast de type' : une conversion non sécurisée de 'FARPROC' en 'AddFuncdbl'
+        Making un appel de fonction à l’aide du pointeur résultant peut entraîner l’échec de votre programme.
+src\testdll_explicit.c(45): warning C4191: 'cast de type' : une conversion non sécurisée de 'FARPROC' en 'SubFuncdbl'
+        Making un appel de fonction à l’aide du pointeur résultant peut entraîner l’échec de votre programme.
+src\testdll_explicit.c(46): warning C4191: 'cast de type' : une conversion non sécurisée de 'FARPROC' en 'MulFuncdbl'
+        Making un appel de fonction à l’aide du pointeur résultant peut entraîner l’échec de votre programme.
+src\testdll_explicit.c(47): warning C4191: 'cast de type' : une conversion non sécurisée de 'FARPROC' en 'DivFuncdbl'
+        Making un appel de fonction à l’aide du pointeur résultant peut entraîner l’échec de votre programme.
+src\testdll_explicit.c(48): warning C4191: 'cast de type' : une conversion non sécurisée de 'FARPROC' en 'SquarFuncdbl'
+        Making un appel de fonction à l’aide du pointeur résultant peut entraîner l’échec de votre programme.
+src\testdll_explicit.c(21): warning C4100: 'argc' : paramètre formel non référencé
+DLL attaching to process...
+Hello from a DLL!
+----------------------       Lancement des operations arithmetiques avec des entiers        -----------------------
+La somme de 42 plus 7 vaut 49.          (from application with explicit load of DLL testdll_explicit.exe)
+La soustraction de 42 moins 7 vaut 35.  (from application with explicit load of DLL testdll_explicit.exe)
+La multiplication de 42 par 7 vaut 294. (from application with explicit load of DLL testdll_explicit.exe)
+La division de 42 par 7 vaut 6.         (from application with explicit load of DLL testdll_explicit.exe)
+Le carre de 7 par 7 vaut 49.            (from application with explicit load of DLL testdll_explicit.exe)
+----------------------    Lancement des operations arithmetiques avec des doubles flottants   ---------------------
+La somme de 16.9 plus 7.3 vaut 24.20.          (from application with explicit load of DLL testdll_explicit.exe)
+La soustraction de 16.9 moins 7.3 vaut 9.60.   (from application with explicit load of DLL testdll_explicit.exe)
+La multiplication de 16.9 par 7.3 vaut 123.37. (from application with explicit load of DLL testdll_explicit.exe)
+La division de 16.9 par 7.3 vaut 2.315.        (from application with explicit load of DLL testdll_explicit.exe)
+Le carre de 7.3 par 7.3 vaut 53.29.            (from application with explicit load of DLL testdll_explicit.exe)
+DLL detaching from process...
+  ****************               Lancement du script python 32 bits de test de la DLL.               ********************
+Version python : 3.12 (32bit)
+DLL attaching to process...
+Hello from a DLL!
+----------------------       Lancement des operations arithmetiques avec des entiers        -----------------------
+La somme de 42 plus 7 vaut 49.                  (from script python testdll_cdecl.py)
+La difference de 42 moins 7 vaut 35.            (from script python testdll_cdecl.py)
+La multiplication de 42 par 7 vaut 294.         (from script python testdll_cdecl.py)
+La division de 42 par 7 vaut 6.                 (from script python testdll_cdecl.py)
+Le carre de 7 par 7 vaut 49.                    (from script python testdll_cdecl.py)
+----------------------    Lancement des operations arithmetiques avec des doubles flottants   ---------------------
+La somme de 16.9 plus 7.3 vaut 24.2.                  (from script python testdll_cdecl.py)
+La difference de 16.9 moins 7.3 vaut 9.6.             (from script python testdll_cdecl.py)
+La multiplication de 16.9 par 7.3 vaut 123.37.        (from script python testdll_cdecl.py)
+La division de 16.9 par 7.3 vaut 2.31507.             (from script python testdll_cdecl.py)
+Le carre de 7.3 par 7.3 vaut 53.29.                   (from script python testdll_cdecl.py)
+DLL detaching from process...
+  ******************             Compilation de la DLL en mode 64 bits               *******************
+dll_core.c
+C:\src\VC\TestDLL\src\dll_share.h(56): warning C4255: 'Hello' : aucun prototype de fonction fourni : conversion de '()' en '(void)'
+src\dll_core.c(25): warning C4100: 'lpvReserved' : paramètre formel non référencé
+src\dll_core.c(25): warning C4100: 'hinstDLL' : paramètre formel non référencé
+src\dll_core.c(62): warning C4255: 'Hello' : aucun prototype de fonction fourni : conversion de '()' en '(void)'
+   Création de la bibliothèque dll_core64.lib et de l'objet dll_core64.exp
+  ************                          Dump des symboles exportes de la DLL dll_core64.dll                                        *************
+Microsoft (R) COFF/PE Dumper Version 14.38.33130.0
+Copyright (C) Microsoft Corporation.  All rights reserved.
+
+
+Dump of file dll_core64.dll
+
+File Type: DLL
+
+  Section contains the following exports for dll_core64.dll
+
+    00000000 characteristics
+    FFFFFFFF time date stamp
+        0.00 version
+           1 ordinal base
+          11 number of functions
+          11 number of names
+
+    ordinal hint RVA      name
+
+          1    0 000010E0 Adddbl
+          2    1 00001020 Addint
+          3    2 00001140 Divdbl
+          4    3 00001080 Divint
+          5    4 00001000 Hello
+          6    5 00001120 Multdbl
+          7    6 00001060 Multint
+          8    7 000011A0 Squardbl
+          9    8 000010C0 Squarint
+         10    9 00001100 Subdbl
+         11    A 00001040 Subint
+
+  Summary
+
+        2000 .data
+        2000 .pdata
+        B000 .rdata
+        1000 .reloc
+       15000 .text
+        1000 _RDATA
+  ************     Generation et lancement du premier programme de test de la DLL en mode implicite.      *************
+testdll_implicit.c
+C:\src\VC\TestDLL\src\dll_share.h(56): warning C4255: 'Hello' : aucun prototype de fonction fourni : conversion de '()' en '(void)'
+src\testdll_implicit.c(8): warning C4100: 'argc' : paramètre formel non référencé
+DLL attaching to process...
+Hello from a DLL!
+----------------------       Lancement des operations arithmetiques avec des entiers        -----------------------
+Le resultat de l'addition de 42 plus 7 vaut : 49.        (from application with implicit load of DLL testdll_implicit64.exe)
+Le resultat de la soustraction de 42 moins 7 vaut : 35.  (from application with implicit load of DLL testdll_implicit64.exe)
+Le resultat de la multiplication de 42 par 7 vaut : 294. (from application with implicit load of DLL testdll_implicit64.exe)
+Le resultat de la division de 42 par 7 vaut : 6.         (from application with implicit load of DLL testdll_implicit64.exe)
+Le carre de 7 par 7 vaut : 49.                           (from application with implicit load of DLL testdll_implicit64.exe)
+----------------------    Lancement des operations arithmetiques avec des doubles flottants   ---------------------
+La somme de 16.9 plus 7.3 vaut 24.20.          (from application with implicit load of DLL testdll_implicit64.exe)
+La soustraction de 16.9 moins 7.3 vaut 9.60.   (from application with implicit load of DLL testdll_implicit64.exe)
+La multiplication de 16.9 par 7.3 vaut 123.37. (from application with implicit load of DLL testdll_implicit64.exe)
+La division de 16.9 par 7.3 vaut 2.315.        (from application with implicit load of DLL testdll_implicit64.exe)
+Le carre de 7.3 par 7.3 vaut 53.29.            (from application with implicit load of DLL testdll_implicit64.exe)
+DLL detaching from process...
+  ************     Generation et lancement du deuxieme programme de test de la DLL en mode explicite.     *************
+testdll_explicit.c
+src\testdll_explicit.c(8): warning C4255: 'HelloFunc' : aucun prototype de fonction fourni : conversion de '()' en '(void)'
+src\testdll_explicit.c(38): warning C4191: 'cast de type' : une conversion non sécurisée de 'FARPROC' en 'HelloFunc'
+        Making un appel de fonction à l’aide du pointeur résultant peut entraîner l’échec de votre programme.
+src\testdll_explicit.c(39): warning C4191: 'cast de type' : une conversion non sécurisée de 'FARPROC' en 'AddFuncint'
+        Making un appel de fonction à l’aide du pointeur résultant peut entraîner l’échec de votre programme.
+src\testdll_explicit.c(40): warning C4191: 'cast de type' : une conversion non sécurisée de 'FARPROC' en 'SubFuncint'
+        Making un appel de fonction à l’aide du pointeur résultant peut entraîner l’échec de votre programme.
+src\testdll_explicit.c(41): warning C4191: 'cast de type' : une conversion non sécurisée de 'FARPROC' en 'MulFuncint'
+        Making un appel de fonction à l’aide du pointeur résultant peut entraîner l’échec de votre programme.
+src\testdll_explicit.c(42): warning C4191: 'cast de type' : une conversion non sécurisée de 'FARPROC' en 'DivFuncint'
+        Making un appel de fonction à l’aide du pointeur résultant peut entraîner l’échec de votre programme.
+src\testdll_explicit.c(43): warning C4191: 'cast de type' : une conversion non sécurisée de 'FARPROC' en 'SquarFuncint'
+        Making un appel de fonction à l’aide du pointeur résultant peut entraîner l’échec de votre programme.
+src\testdll_explicit.c(44): warning C4191: 'cast de type' : une conversion non sécurisée de 'FARPROC' en 'AddFuncdbl'
+        Making un appel de fonction à l’aide du pointeur résultant peut entraîner l’échec de votre programme.
+src\testdll_explicit.c(45): warning C4191: 'cast de type' : une conversion non sécurisée de 'FARPROC' en 'SubFuncdbl'
+        Making un appel de fonction à l’aide du pointeur résultant peut entraîner l’échec de votre programme.
+src\testdll_explicit.c(46): warning C4191: 'cast de type' : une conversion non sécurisée de 'FARPROC' en 'MulFuncdbl'
+        Making un appel de fonction à l’aide du pointeur résultant peut entraîner l’échec de votre programme.
+src\testdll_explicit.c(47): warning C4191: 'cast de type' : une conversion non sécurisée de 'FARPROC' en 'DivFuncdbl'
+        Making un appel de fonction à l’aide du pointeur résultant peut entraîner l’échec de votre programme.
+src\testdll_explicit.c(48): warning C4191: 'cast de type' : une conversion non sécurisée de 'FARPROC' en 'SquarFuncdbl'
+        Making un appel de fonction à l’aide du pointeur résultant peut entraîner l’échec de votre programme.
+src\testdll_explicit.c(21): warning C4100: 'argc' : paramètre formel non référencé
+DLL attaching to process...
+Hello from a DLL!
+----------------------       Lancement des operations arithmetiques avec des entiers        -----------------------
+La somme de 42 plus 7 vaut 49.          (from application with explicit load of DLL testdll_explicit64.exe)
+La soustraction de 42 moins 7 vaut 35.  (from application with explicit load of DLL testdll_explicit64.exe)
+La multiplication de 42 par 7 vaut 294. (from application with explicit load of DLL testdll_explicit64.exe)
+La division de 42 par 7 vaut 6.         (from application with explicit load of DLL testdll_explicit64.exe)
+Le carre de 7 par 7 vaut 49.            (from application with explicit load of DLL testdll_explicit64.exe)
+----------------------    Lancement des operations arithmetiques avec des doubles flottants   ---------------------
+La somme de 16.9 plus 7.3 vaut 24.20.          (from application with explicit load of DLL testdll_explicit64.exe)
+La soustraction de 16.9 moins 7.3 vaut 9.60.   (from application with explicit load of DLL testdll_explicit64.exe)
+La multiplication de 16.9 par 7.3 vaut 123.37. (from application with explicit load of DLL testdll_explicit64.exe)
+La division de 16.9 par 7.3 vaut 2.315.        (from application with explicit load of DLL testdll_explicit64.exe)
+Le carre de 7.3 par 7.3 vaut 53.29.            (from application with explicit load of DLL testdll_explicit64.exe)
+DLL detaching from process...
+  ****************               Lancement du script python 64 bits de test de la DLL.               *******************
+Version python : 3.12 (64bit)
+DLL attaching to process...
+Hello from a DLL!
+----------------------       Lancement des operations arithmetiques avec des entiers        -----------------------
+La somme de 42 plus 7 vaut 49.                  (from script python testdll_cdecl.py)
+La difference de 42 moins 7 vaut 35.            (from script python testdll_cdecl.py)
+La multiplication de 42 par 7 vaut 294.         (from script python testdll_cdecl.py)
+La division de 42 par 7 vaut 6.                 (from script python testdll_cdecl.py)
+Le carre de 7 par 7 vaut 49.                    (from script python testdll_cdecl.py)
+----------------------    Lancement des operations arithmetiques avec des doubles flottants   ---------------------
+La somme de 16.9 plus 7.3 vaut 24.2.                  (from script python testdll_cdecl.py)
+La difference de 16.9 moins 7.3 vaut 9.6.             (from script python testdll_cdecl.py)
+La multiplication de 16.9 par 7.3 vaut 123.37.        (from script python testdll_cdecl.py)
+La division de 16.9 par 7.3 vaut 2.31507.             (from script python testdll_cdecl.py)
+Le carre de 7.3 par 7.3 vaut 53.29.                   (from script python testdll_cdecl.py)
+DLL detaching from process...
+        Fin de la generation de la DLL et des tests avec Visual C/C++ 32 bits ou 64 bits + Kits Windows.
+
+Conclusion :
+
+Il est donc confirmé qu'il est tout à fait possible de générer une DLL opérationnelle, aussi bien en version X86 
+qu'en version X64 avec le compilateur inclus dans Visual Studio Community et du Kit de développement Windows 
+disponibles gratuitement sur le site de Microsoft, sans surprise.
+
+Voici les grandes lignes à retenir pour obtenir ce résultat :
+
+	a) Si vous utilisez dans le code principal de la DLL le point d'entrée DllMain, il faut le préfixer juste par "WINAPI". 
+		Pas d'autres options à rajouter, ni à déclarer.
+	b) Pour toutes les fonctions déclarées comme accessibles dans votre DLL, il faut les préfixer par "__declspec(dllexport)" 
+	    ou par "__declspec(dllimport)" dans un fichier d'include qui est alors partagé entre la génération de la DLL et son 
+		utilisation dans le programme de test avec chargement implicite (astuce et préconisation de Mark Payne, sur la base d'un
+		test sur un Define "BUILD_DLL").
+	c) Dans le fichier principal de votre DLL, il faut, après avoir inclus le fichier d'include précédent, il faut déclarer
+	    le corps de chaque fonction en les préfixant par "__declspec(dllexport)" ou la variable symbolique "ad hoc", ce qui se 
+		fait automatiquement avec le fichier d'include et le test sur "BUILD_DLL".
+		
+A noter aussi que le compilateur Visual C/C++ génére automatiquement les librairies "ad hoc" (version 32 et 64 bits) lors de la 
+constitution des DLL, et ce sont ces librairies qui ont ensuite servies lors de la génération du programme de test avec
+chargement implicite de la DLL, sans oublier "l'astuce" du LIBPATH pointant sur le répertoire courant.
+
