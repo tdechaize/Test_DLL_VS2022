@@ -49,7 +49,7 @@ set "PAR1=%~1"
 REM Mandatory, add to PATH the binary directory of compiler VisualC/C++ 32 bits + Kits Windows. You can adapt this directory at your personal software environment.
 SET PATH=C:\Program Files (X86)\Windows Kits\%KIT_WIN_VERSION%\bin\%KIT_WIN_NUM%\x86;C:\Program Files\Microsoft Visual Studio\%VS_VERSION%\Community\VC\Tools\MSVC\%VS_NUM%\bin\Hostx86\x86;;C:\GetGnuWin32\bin;%PATH%
 SET LIB="C:\Program Files (X86)\Windows Kits\%KIT_WIN_VERSION%\lib\%KIT_WIN_NUM%\um\x86";"C:\Program Files\Microsoft Visual Studio\%VS_VERSION%\Community\VC\Tools\MSVC\%VS_NUM%\lib\x86";"C:\Program Files (X86)\Windows Kits\%KIT_WIN_VERSION%\lib\%KIT_WIN_NUM%\ucrt\x86";"C:\Program Files\Microsoft Visual Studio\%VS_VERSION%\Community\VC\Tools\MSVC\%VS_NUM%\lib\x86\store"
-if PAR1 == "TWO" (
+if "%PAR1%" == "TWO" (
 REM Options used with Visual C/C++ compiler 32 bits :
 REM 	/Wall								-> set all warning during compilation
 REM		/c 									-> compile and assemble only, not call of linker
@@ -112,7 +112,7 @@ set "PAR1=%~1"
 REM      Mandatory, add to PATH the binary directory of compiler Visual C/C++ 64 bits + kits Windows. You can adapt this directory at your personal software environment.
 SET PATH=C:\Program Files (X86)\Windows Kits\%KIT_WIN_VERSION%\bin\%KIT_WIN_NUM%\x64;C:\Program Files\Microsoft Visual Studio\%VS_VERSION%\Community\VC\Tools\MSVC\%VS_NUM%\bin\Hostx64\x64;;C:\GetGnuWin32\bin;%PATH%
 SET LIB="C:\Program Files (X86)\Windows Kits\%KIT_WIN_VERSION%\lib\%KIT_WIN_NUM%\um\x64";"C:\Program Files\Microsoft Visual Studio\%VS_VERSION%\Community\VC\Tools\MSVC\%VS_NUM%\lib\x64";"C:\Program Files (X86)\Windows Kits\%KIT_WIN_VERSION%\lib\%KIT_WIN_NUM%\ucrt\x64";"C:\Program Files\Microsoft Visual Studio\%VS_VERSION%\Community\VC\Tools\MSVC\%VS_NUM%\lib\x64\store"
-if PAR1 == "TWO" (
+if "%PAR1%" == "TWO" (
 REM Options used with  Visual C/C++ compiler 64 bits 
 REM 	/Wall								-> set all warning during compilation
 REM		/c 									-> compile and assemble only, not call of linker

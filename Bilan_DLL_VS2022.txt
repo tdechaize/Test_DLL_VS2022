@@ -827,7 +827,7 @@ set "PAR1=%~1"
 REM Mandatory, add to PATH the binary directory of compiler VisualC/C++ 32 bits + Kits Windows. You can adapt this directory at your personal software environment.
 SET PATH=C:\Program Files (X86)\Windows Kits\%KIT_WIN_VERSION%\bin\%KIT_WIN_NUM%\x86;C:\Program Files\Microsoft Visual Studio\%VS_VERSION%\Community\VC\Tools\MSVC\%VS_NUM%\bin\Hostx86\x86;;C:\GetGnuWin32\bin;%PATH%
 SET LIB="C:\Program Files (X86)\Windows Kits\%KIT_WIN_VERSION%\lib\%KIT_WIN_NUM%\um\x86";"C:\Program Files\Microsoft Visual Studio\%VS_VERSION%\Community\VC\Tools\MSVC\%VS_NUM%\lib\x86";"C:\Program Files (X86)\Windows Kits\%KIT_WIN_VERSION%\lib\%KIT_WIN_NUM%\ucrt\x86";"C:\Program Files\Microsoft Visual Studio\%VS_VERSION%\Community\VC\Tools\MSVC\%VS_NUM%\lib\x86\store"
-if PAR1 == "TWO" (
+if "%PAR1%" == "TWO" (
 REM Options used with Visual C/C++ compiler 32 bits :
 REM 	/Wall								-> set all warning during compilation
 REM		/c 									-> compile and assemble only, not call of linker
@@ -890,7 +890,7 @@ set "PAR1=%~1"
 REM      Mandatory, add to PATH the binary directory of compiler Visual C/C++ 64 bits + kits Windows. You can adapt this directory at your personal software environment.
 SET PATH=C:\Program Files (X86)\Windows Kits\%KIT_WIN_VERSION%\bin\%KIT_WIN_NUM%\x64;C:\Program Files\Microsoft Visual Studio\%VS_VERSION%\Community\VC\Tools\MSVC\%VS_NUM%\bin\Hostx64\x64;;C:\GetGnuWin32\bin;%PATH%
 SET LIB="C:\Program Files (X86)\Windows Kits\%KIT_WIN_VERSION%\lib\%KIT_WIN_NUM%\um\x64";"C:\Program Files\Microsoft Visual Studio\%VS_VERSION%\Community\VC\Tools\MSVC\%VS_NUM%\lib\x64";"C:\Program Files (X86)\Windows Kits\%KIT_WIN_VERSION%\lib\%KIT_WIN_NUM%\ucrt\x64";"C:\Program Files\Microsoft Visual Studio\%VS_VERSION%\Community\VC\Tools\MSVC\%VS_NUM%\lib\x64\store"
-if PAR1 == "TWO" (
+if "%PAR1%" == "TWO" (
 REM Options used with  Visual C/C++ compiler 64 bits 
 REM 	/Wall								-> set all warning during compilation
 REM		/c 									-> compile and assemble only, not call of linker
@@ -1310,7 +1310,7 @@ DLL detaching from process...
 
 Le résultat produit en deux passes :
 
-"compile_link_dll_CLANG_VS2022_OK.bat TWO ALL"
+"compile_link_dll_VS2022_OK.bat TWO ALL"
  Lancement du batch de generation d'une DLL et deux tests de celle-ci avec Visual C/C++ 32 bits ou 64 bits + Kit Windows
   *********  Quelques caracteristiques du systeme hebergeant l'environnement de developpement.   ***********
 Name
@@ -1324,14 +1324,16 @@ OSArchitecture
 
   **********      Pour cette generation le premier parametre vaut "TWO" et le deuxieme "ALL".     *************
   ******************                        Compilation de la DLL en mode 32 bits                        *******************
+  ***************       Compilation de la DLL avec Visual C/C++ 32 bits + Kits Windows.             *****************
 dll_core.c
 C:\src\VC\TestDLL\src\dll_share.h(56): warning C4255: 'Hello' : aucun prototype de fonction fourni : conversion de '()' en '(void)'
 src\dll_core.c(25): warning C4100: 'lpvReserved' : paramètre formel non référencé
 src\dll_core.c(25): warning C4100: 'hinstDLL' : paramètre formel non référencé
 src\dll_core.c(62): warning C4255: 'Hello' : aucun prototype de fonction fourni : conversion de '()' en '(void)'
+  ***************          Edition de liens de la DLL avec Visual C/C++ 32 bits + Kits Windows.     *******************
    Création de la bibliothèque dll_core.lib et de l'objet dll_core.exp
-  ************                          Dump des symboles exportes de la DLL dll_core.dll                                      *************
-Microsoft (R) COFF/PE Dumper Version 14.38.33130.0
+  ***************              Listage des fonctions exportees de la DLL                                   *******************
+Microsoft (R) COFF/PE Dumper Version 14.38.33133.0
 Copyright (C) Microsoft Corporation.  All rights reserved.
 
 
@@ -1368,7 +1370,7 @@ File Type: DLL
         7000 .rdata
         1000 .reloc
        12000 .text
-  ************     Generation et lancement du premier programme de test de la DLL en mode implicite.      *************
+  *************     Generation et lancement du premier programme de test de la DLL en mode implicite.      *******************
 testdll_implicit.c
 C:\src\VC\TestDLL\src\dll_share.h(56): warning C4255: 'Hello' : aucun prototype de fonction fourni : conversion de '()' en '(void)'
 src\testdll_implicit.c(8): warning C4100: 'argc' : paramètre formel non référencé
@@ -1387,7 +1389,7 @@ La multiplication de 16.9 par 7.3 vaut 123.37. (from application with implicit l
 La division de 16.9 par 7.3 vaut 2.315.        (from application with implicit load of DLL testdll_implicit.exe)
 Le carre de 7.3 par 7.3 vaut 53.29.            (from application with implicit load of DLL testdll_implicit.exe)
 DLL detaching from process...
-  ************     Generation et lancement du deuxieme programme de test de la DLL en mode explicite.     *************
+  ************      Generation et lancement du deuxieme programme de test de la DLL en mode explicite.      *****************
 testdll_explicit.c
 src\testdll_explicit.c(8): warning C4255: 'HelloFunc' : aucun prototype de fonction fourni : conversion de '()' en '(void)'
 src\testdll_explicit.c(38): warning C4191: 'cast de type' : une conversion non sécurisée de 'FARPROC' en 'HelloFunc'
@@ -1446,14 +1448,16 @@ La division de 16.9 par 7.3 vaut 2.31507.             (from script python testdl
 Le carre de 7.3 par 7.3 vaut 53.29.                   (from script python testdll_cdecl.py)
 DLL detaching from process...
   ******************             Compilation de la DLL en mode 64 bits               *******************
+  ***************       Compilation de la DLL avec Visual C/C++ 64 bits + Kits Windows.             *****************
 dll_core.c
 C:\src\VC\TestDLL\src\dll_share.h(56): warning C4255: 'Hello' : aucun prototype de fonction fourni : conversion de '()' en '(void)'
 src\dll_core.c(25): warning C4100: 'lpvReserved' : paramètre formel non référencé
 src\dll_core.c(25): warning C4100: 'hinstDLL' : paramètre formel non référencé
 src\dll_core.c(62): warning C4255: 'Hello' : aucun prototype de fonction fourni : conversion de '()' en '(void)'
+  ***************          Edition de liens de la DLL avec Visual C/C++ 64 bits + Kits Windows.     *******************
    Création de la bibliothèque dll_core64.lib et de l'objet dll_core64.exp
-  ************                          Dump des symboles exportes de la DLL dll_core64.dll                                        *************
-Microsoft (R) COFF/PE Dumper Version 14.38.33130.0
+  ***************              Listage des fonctions exportees de la DLL                                   *******************
+Microsoft (R) COFF/PE Dumper Version 14.38.33133.0
 Copyright (C) Microsoft Corporation.  All rights reserved.
 
 
@@ -1492,7 +1496,7 @@ File Type: DLL
         1000 .reloc
        15000 .text
         1000 _RDATA
-  ************     Generation et lancement du premier programme de test de la DLL en mode implicite.      *************
+  *************     Generation et lancement du premier programme de test de la DLL en mode implicite.      *******************
 testdll_implicit.c
 C:\src\VC\TestDLL\src\dll_share.h(56): warning C4255: 'Hello' : aucun prototype de fonction fourni : conversion de '()' en '(void)'
 src\testdll_implicit.c(8): warning C4100: 'argc' : paramètre formel non référencé
@@ -1511,7 +1515,7 @@ La multiplication de 16.9 par 7.3 vaut 123.37. (from application with implicit l
 La division de 16.9 par 7.3 vaut 2.315.        (from application with implicit load of DLL testdll_implicit64.exe)
 Le carre de 7.3 par 7.3 vaut 53.29.            (from application with implicit load of DLL testdll_implicit64.exe)
 DLL detaching from process...
-  ************     Generation et lancement du deuxieme programme de test de la DLL en mode explicite.     *************
+  ************      Generation et lancement du deuxieme programme de test de la DLL en mode explicite.      *****************
 testdll_explicit.c
 src\testdll_explicit.c(8): warning C4255: 'HelloFunc' : aucun prototype de fonction fourni : conversion de '()' en '(void)'
 src\testdll_explicit.c(38): warning C4191: 'cast de type' : une conversion non sécurisée de 'FARPROC' en 'HelloFunc'
